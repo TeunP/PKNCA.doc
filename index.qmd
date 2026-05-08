@@ -87,9 +87,6 @@ This documentation separates IV and extravascular workflows because the route de
 
 → [Utility functions](user/utilities.qmd)
 
-## Not yet covered
+→ [Dose-aware interpolation and extrapolation](user/dose-aware-interpolation.qmd)
 
-| Topic | PKNCA vignette |
-|---|---|
-| Dose-aware interpolation / extrapolation | `vignette("v21-methods-for-dose-aware-interpolation-and-extrapolation", package="PKNCA")` |
-| Writing custom parameter functions | `vignette("v80-writing-parameter-functions", package="PKNCA")` |
+→ [Writing custom parameter functions](user/custom-parameters.qmd)

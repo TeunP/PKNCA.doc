@@ -29,6 +29,8 @@ website:
           - user/superposition.qmd
           - user/tss.qmd
           - user/utilities.qmd
+          - user/dose-aware-interpolation.qmd
+          - user/custom-parameters.qmd
       - section: "Developer"
         contents:
           - dev/function-deps.qmd

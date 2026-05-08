@@ -1,0 +1,267 @@
+---
+title: "Writing Custom Parameter Functions"
+---
+
+```{r setup, include=FALSE}
+library(PKNCA)
+library(dplyr)
+library(ggplot2)
+conflicted::conflicts_prefer(dplyr::filter, dplyr::select, .quiet = TRUE)
+
+# Shared dataset
+d_conc <- as.data.frame(Theoph) |> rename(time = Time, subject = Subject)
+d_dose <- Theoph |> as.data.frame() |>
+  group_by(Subject) |>
+  summarise(dose = Dose[1] * Wt[1], .groups = "drop") |>
+  rename(subject = Subject) |>
+  mutate(time = 0)
+
+o_conc <- PKNCAconc(d_conc, conc ~ time | subject)
+o_dose <- PKNCAdose(d_dose, dose ~ time | subject, route = "extravascular")
+```
+
+## The parameter registry
+
+Every NCA parameter that PKNCA can compute is **registered** in an internal registry via `add.interval.col()`. When you request `auclast = TRUE` in an interval, PKNCA looks up the registered function for `auclast` and calls it with the right arguments.
+
+You can extend the registry with your own parameters — new functions that compute anything derivable from concentrations, times, doses, or other already-computed parameters.
+
+```{r}
+# 123 parameters registered by default
+length(get.interval.cols())
+```
+
+---
+
+## Anatomy of `add.interval.col()`
+
+```r
+add.interval.col(
+  name        = "my.param",       # column name used in intervals data frame
+  FUN         = "pk.calc.my.param", # character string: function name
+  values      = c(FALSE, TRUE),   # allowed values in intervals (FALSE = skip, TRUE = compute)
+  unit_type   = "time",           # units category (see below)
+  pretty_name = "My parameter",   # human-readable label
+  desc        = "What it does",   # one-line description
+  depends     = NULL,             # other parameters that must be computed first
+  formalsmap  = list(),           # how to map registered arg names to your function args
+  datatype    = "interval"        # "interval" (default), "individual", or "population"
+)
+```
+
+**Key rule:** `FUN` must be a **character string** (the function name), not a function object.
+
+### Available `unit_type` values
+
+`"time"`, `"conc"`, `"auc"`, `"aumc"`, `"clearance"`, `"volume"`, `"fraction"`, `"dose"`, `"amount"`, `"%"`, `"count"`, `"unitless"`, `"inverse_time"`, `"renal_clearance"`, `"auc_dosenorm"`, `"conc_dosenorm"`, `"aumc_dosenorm"`, `"amount_dose"`
+
+---
+
+## Example 1: derived from other parameters
+
+A parameter that divides two already-computed parameters. Use `depends` to declare what must be computed first, and `formalsmap` to map PKNCA's internal argument names to your function's parameter names.
+
+```{r}
+# Exposure ratio: AUClast / Cmax  (units: time, since AUC/conc = time × conc/conc = time)
+pk.calc.exposure.ratio <- function(auclast, cmax) {
+  auclast / cmax
+}
+
+add.interval.col(
+  name        = "exposure.ratio",
+  FUN         = "pk.calc.exposure.ratio",
+  values      = c(FALSE, TRUE),
+  unit_type   = "time",
+  pretty_name = "Exposure ratio (AUClast / Cmax)",
+  desc        = "AUClast divided by Cmax",
+  depends     = c("auclast", "cmax"),
+  formalsmap  = list(auclast = "auclast", cmax = "cmax")
+)
+```
+
+```{r}
+o_nca_er <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = data.frame(
+  start          = 0, end = Inf,
+  auclast        = TRUE,
+  cmax           = TRUE,
+  exposure.ratio = TRUE
+)))
+
+as.data.frame(o_nca_er) |>
+  filter(PPTESTCD %in% c("auclast", "cmax", "exposure.ratio")) |>
+  select(subject, PPTESTCD, PPORRES) |>
+  tidyr::pivot_wider(names_from = PPTESTCD, values_from = PPORRES) |>
+  mutate(check = auclast / cmax) |>
+  arrange(subject)
+```
+
+---
+
+## Example 2: computed from raw concentration-time data
+
+A parameter that accesses `conc` and `time` directly. PKNCA passes the raw vectors from the concentration data. No `depends` needed — just use `conc` and `time` as argument names and map them in `formalsmap`.
+
+```{r}
+# Concentration at exactly 2 hours (interpolated)
+pk.calc.c_at_2h <- function(conc, time) {
+  interp.extrap.conc(conc = conc, time = time, time.out = 2)
+}
+
+add.interval.col(
+  name        = "c.2h",
+  FUN         = "pk.calc.c_at_2h",
+  values      = c(FALSE, TRUE),
+  unit_type   = "conc",
+  pretty_name = "Concentration at 2 h",
+  desc        = "Interpolated concentration at t = 2 h",
+  depends     = NULL,
+  formalsmap  = list(conc = "conc", time = "time")
+)
+```
+
+```{r}
+o_nca_c2 <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = data.frame(
+  start = 0, end = Inf, c.2h = TRUE
+)))
+
+as.data.frame(o_nca_c2) |>
+  filter(PPTESTCD == "c.2h") |>
+  select(subject, PPORRES) |>
+  arrange(subject)
+```
+
+---
+
+## Example 3: multi-value return
+
+A function can return a **named list** to register multiple output parameters at once. Each name in the list becomes a separate row in the results.
+
+```{r}
+# Compute early and late AUC portions simultaneously
+pk.calc.auc.split <- function(conc, time, auclast) {
+  # Fraction of AUClast in first 4h vs. rest
+  auc_early <- pk.calc.auc.last(conc[time <= 4], time[time <= 4])
+  auc_late  <- auclast - auc_early
+  list(
+    auc.early = auc_early,
+    auc.late  = auc_late,
+    auc.early.fraction = auc_early / auclast
+  )
+}
+
+add.interval.col(
+  name        = "auc.early",
+  FUN         = "pk.calc.auc.split",
+  values      = c(FALSE, TRUE),
+  unit_type   = "auc",
+  pretty_name = "AUC 0-4h",
+  desc        = "AUC from 0 to 4 h",
+  depends     = "auclast",
+  formalsmap  = list(conc = "conc", time = "time", auclast = "auclast")
+)
+
+add.interval.col(
+  name        = "auc.late",
+  FUN         = "pk.calc.auc.split",
+  values      = c(FALSE, TRUE),
+  unit_type   = "auc",
+  pretty_name = "AUC 4h to last",
+  desc        = "AUC from 4 h to last sample",
+  depends     = "auclast",
+  formalsmap  = list(conc = "conc", time = "time", auclast = "auclast")
+)
+
+add.interval.col(
+  name        = "auc.early.fraction",
+  FUN         = "pk.calc.auc.split",
+  values      = c(FALSE, TRUE),
+  unit_type   = "fraction",
+  pretty_name = "Early AUC fraction",
+  desc        = "Fraction of AUClast occurring in first 4 h",
+  depends     = "auclast",
+  formalsmap  = list(conc = "conc", time = "time", auclast = "auclast")
+)
+```
+
+```{r}
+o_nca_split <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = data.frame(
+  start              = 0, end = Inf,
+  auclast            = TRUE,
+  auc.early          = TRUE,
+  auc.late           = TRUE,
+  auc.early.fraction = TRUE
+)))
+
+as.data.frame(o_nca_split) |>
+  filter(PPTESTCD %in% c("auclast", "auc.early", "auc.late", "auc.early.fraction")) |>
+  select(subject, PPTESTCD, PPORRES) |>
+  tidyr::pivot_wider(names_from = PPTESTCD, values_from = PPORRES) |>
+  arrange(subject)
+```
+
+---
+
+## The `formalsmap` argument
+
+`formalsmap` maps PKNCA's standard argument names to your function's parameter names. PKNCA always passes data using its own internal names; `formalsmap` tells it which of those names maps to which argument in your function.
+
+Standard PKNCA argument names available via `formalsmap`:
+
+| PKNCA name | What it provides |
+|---|---|
+| `conc` | Concentration vector for the current interval |
+| `time` | Time vector for the current interval |
+| `dose` | Total dose in the current interval |
+| `start` | Interval start time |
+| `end` | Interval end time |
+| `half.life` | Computed half-life (if in `depends`) |
+| `auclast` | Computed AUClast (if in `depends`) |
+| `cmax` | Computed Cmax (if in `depends`) |
+| *(any parameter name)* | Any other registered parameter in `depends` |
+
+If your function argument names **exactly match** PKNCA's standard names, `formalsmap` can be omitted or left empty.
+
+---
+
+## Inspecting registered parameters
+
+```{r}
+# Confirm your parameter is registered
+cols <- get.interval.cols()
+cat("exposure.ratio registered:", "exposure.ratio" %in% names(cols), "\n")
+cat("c.2h registered:          ", "c.2h" %in% names(cols), "\n")
+```
+
+```{r}
+# Inspect registration details
+str(cols[["exposure.ratio"]])
+```
+
+---
+
+## Custom summary statistics for your parameter
+
+After registering the parameter, set a custom summary rule with `PKNCA.set.summary()`:
+
+```{r}
+PKNCA.set.summary(
+  "exposure.ratio",
+  description = "geometric mean [CV%]",
+  point  = PKNCA:::geomean,
+  spread = PKNCA:::geocv
+)
+
+summary(pk.nca(PKNCAdata(o_conc, o_dose, intervals = data.frame(
+  start = 0, end = Inf,
+  auclast = TRUE, cmax = TRUE, exposure.ratio = TRUE
+))))
+```
+
+---
+
+## Important notes
+
+- **Registration is session-scoped.** Custom parameters registered with `add.interval.col()` persist for the life of your R session. Re-run registration code in each session (e.g., in your analysis script or package).
+- **`FUN` must be a character string.** Passing a function object causes an error.
+- **`depends` controls evaluation order.** List all parameters your function reads. PKNCA resolves the dependency graph and ensures they are computed before your function is called.
+- **Functions must be in scope** when `pk.nca()` runs. Define them in the global environment or in a package loaded before calling `pk.nca()`.
