@@ -89,7 +89,7 @@ pk.calc.exposure.ratio <- function(aucinf.obs, auclast) {
 
 add.interval.col(
   name     = "exposure.ratio",
-  FUN      = pk.calc.exposure.ratio,
+  FUN      = "pk.calc.exposure.ratio",  # must be a character string, not the function object
   unit_type = "unitless",
   pretty_name = "Exposure Ratio (AUCinf/AUClast)",
   desc     = "Ratio of AUCinf to AUClast; >1 indicates extrapolation",
