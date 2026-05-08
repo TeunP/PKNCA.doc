@@ -216,25 +216,32 @@ For IV, apparent clearance and volume can be calculated directly (no bioavailabi
 |---|---|---|
 | `cl.obs` | Dose / AUCinf.obs | Total body clearance (L/h) |
 | `cl.pred` | Dose / AUCinf.pred | CL using predicted Clast |
-| `vz.obs` | CL / λz | Volume of distribution (L) |
+| `cl.last` | Dose / AUClast | CL using AUClast only (no extrapolation) |
+| `cl.all` | Dose / AUCall | CL using AUCall (BLQs as zero) |
+| `vz.obs` | CL.obs / λz | Volume of distribution — terminal phase |
 | `vz.pred` | CL.pred / λz | Vz using predicted Clast |
-| `vss.obs` | CL × MRT | Volume at steady state |
+| `vss.obs` | CL.obs × MRT | Volume at steady state (observed) |
+| `vss.pred` | CL.pred × MRT | Volume at steady state (predicted) |
+| `vss.iv.obs` | CL.obs × MRT.iv | Vss corrected for IV bolus input |
 
 ```{r}
 cl_params <- data.frame(
-  start    = first_t,
-  end      = Inf,
-  cl.obs   = TRUE,
-  cl.pred  = TRUE,
-  vz.obs   = TRUE,
-  vz.pred  = TRUE
+  start      = first_t,
+  end        = Inf,
+  cl.obs     = TRUE,
+  cl.pred    = TRUE,
+  cl.last    = TRUE,
+  vz.obs     = TRUE,
+  vz.pred    = TRUE,
+  vss.obs    = TRUE,
+  vss.iv.obs = TRUE
 )
 
 o_data_cl <- PKNCAdata(o_conc, o_dose, intervals = cl_params, impute = "start_conc0")
 o_nca_cl  <- pk.nca(o_data_cl)
 
 as.data.frame(o_nca_cl) |>
-  filter(PPTESTCD %in% c("cl.obs", "cl.pred", "vz.obs", "vz.pred")) |>
+  filter(PPTESTCD %in% c("cl.obs", "cl.pred", "cl.last", "vz.obs", "vss.obs", "vss.iv.obs")) |>
   select(Subject, PPTESTCD, PPORRES) |>
   arrange(Subject, PPTESTCD)
 ```
@@ -260,6 +267,58 @@ as.data.frame(o_nca_mrt) |>
   filter(grepl("^mrt", PPTESTCD)) |>
   select(Subject, PPTESTCD, PPORRES)
 ```
+
+### Effective half-life and elimination rate constant
+
+**Effective half-life** (`thalf.eff`) is derived from MRT rather than from the terminal regression: `thalf.eff = ln(2) × MRT`. It reflects the half-life that would produce the same accumulation as the observed MRT, useful for multiple-dose design.
+
+**kel** is the elimination rate constant — equivalent to λz but named differently in some regulatory contexts.
+
+```{r}
+eff_params <- data.frame(
+  start            = first_t,
+  end              = Inf,
+  thalf.eff.iv.obs = TRUE,   # effective t½ via IV MRT
+  thalf.eff.obs    = TRUE,   # effective t½ via general MRT
+  kel.obs          = TRUE    # elimination rate constant (= λz)
+)
+
+o_nca_eff <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = eff_params, impute = "start_conc0"))
+
+as.data.frame(o_nca_eff) |>
+  filter(PPTESTCD %in% c("thalf.eff.iv.obs", "thalf.eff.obs", "kel.obs")) |>
+  select(Subject, PPTESTCD, PPORRES) |>
+  arrange(Subject, PPTESTCD)
+```
+
+### IV-route AUC (`auciv*`)
+
+`auciv*` parameters compute AUC using IV-specific formulas. Unlike the general `auclast`/`aucinf.obs`, these treat the dose as a bolus at time 0 and are required when the first concentration (C0) is back-extrapolated rather than measured.
+
+| Parameter | Meaning |
+|---|---|
+| `aucivlast` | AUC(0–last) using IV back-extrapolation to C0 |
+| `aucivinf.obs` | AUC(0–∞) IV method, observed Clast |
+| `aucivpbextlast` | % of `aucivinf.obs` beyond last sample (IV method) |
+
+```{r}
+auciv_params <- data.frame(
+  start          = first_t,
+  end            = Inf,
+  aucivlast      = TRUE,
+  aucivinf.obs   = TRUE,
+  aucivpbextlast = TRUE
+)
+
+o_nca_auciv <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = auciv_params, impute = "start_conc0"))
+
+as.data.frame(o_nca_auciv) |>
+  filter(PPTESTCD %in% c("aucivlast", "aucivinf.obs", "aucivpbextlast")) |>
+  select(Subject, PPTESTCD, PPORRES) |>
+  arrange(Subject, PPTESTCD)
+```
+
+> **When to use `auciv*` vs `auclast`/`aucinf.obs`:** For a true IV bolus where C0 is back-extrapolated (as in this example), `aucivlast` and `aucivinf.obs` give the more theoretically correct AUC. For practical purposes the numerical difference is usually small.
 
 ---
 

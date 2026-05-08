@@ -171,6 +171,74 @@ o_data_allow_tmax <- PKNCAdata(
 )
 ```
 
+### Lag time (tlag)
+
+`tlag` is the time before absorption begins — the delay between dosing and the first measurable rise in concentration. Common for enteric-coated formulations or SC injections with a diffusion delay.
+
+```{r}
+o_nca_tlag <- pk.nca(PKNCAdata(o_conc, o_dose,
+  intervals = data.frame(start = 0, end = Inf, tlag = TRUE, tmax = TRUE, cmax = TRUE)))
+
+as.data.frame(o_nca_tlag) |>
+  filter(PPTESTCD %in% c("tlag", "tmax", "cmax")) |>
+  select(subject, PPTESTCD, PPORRES) |>
+  tidyr::pivot_wider(names_from = PPTESTCD, values_from = PPORRES) |>
+  arrange(subject)
+```
+
+> For the Theoph dataset tlag is 0 for all subjects (no lag). It becomes non-zero when the concentration-time profile shows a flat period after dosing before rising.
+
+### Bioavailability (f)
+
+`f` computes the ratio of AUC between two routes or treatments within the same subject. It requires a **reference** AUC in the grouping structure (typically set up with a treatment or period column).
+
+```{r}
+# Syntax: request f = TRUE; PKNCA computes AUC_test / AUC_reference
+# Requires a grouping column that identifies test vs. reference
+# Example structure (illustrative — Theoph is single-arm):
+data.frame(start = 0, end = Inf, aucinf.obs = TRUE, f = FALSE)
+# f = TRUE only makes sense when the data has paired test/reference periods
+```
+
+> See `?pk.calc.f` for the full setup. `f` is typically used in crossover bioequivalence studies.
+
+### Volume at steady state (Vss)
+
+Vss is computed from CL and MRT. For EV routes these are apparent values (divided by F).
+
+```{r}
+vss_params <- data.frame(
+  start    = 0,
+  end      = Inf,
+  vss.obs  = TRUE,   # apparent Vss = CL.obs × MRT.obs
+  vss.pred = TRUE
+)
+
+o_nca_vss <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = vss_params))
+as.data.frame(o_nca_vss) |>
+  filter(PPTESTCD %in% c("vss.obs", "vss.pred")) |>
+  select(subject, PPTESTCD, PPORRES) |>
+  arrange(subject, PPTESTCD)
+```
+
+### Effective half-life and kel
+
+```{r}
+eff_params <- data.frame(
+  start          = 0,
+  end            = Inf,
+  thalf.eff.obs  = TRUE,   # ln(2) × MRT — accumulation half-life
+  thalf.eff.pred = TRUE,
+  kel.obs        = TRUE    # elimination rate constant (= λz)
+)
+
+o_nca_eff <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = eff_params))
+as.data.frame(o_nca_eff) |>
+  filter(PPTESTCD %in% c("thalf.eff.obs", "thalf.eff.pred", "kel.obs")) |>
+  select(subject, PPTESTCD, PPORRES) |>
+  arrange(subject, PPTESTCD)
+```
+
 ### AUC for a specific tau (dosing interval)
 
 For multiple-dose studies, request AUC over the dosing interval (tau):
