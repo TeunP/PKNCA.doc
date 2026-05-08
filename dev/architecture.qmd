@@ -4,6 +4,8 @@ title: "Architecture Overview"
 
 ```{r setup, include=FALSE}
 library(PKNCA)
+library(dplyr)
+conflicted::conflicts_prefer(dplyr::filter, dplyr::select, dplyr::rename, .quiet = TRUE)
 ```
 
 ## Class hierarchy
