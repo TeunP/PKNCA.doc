@@ -1,0 +1,265 @@
+---
+title: "Half-Life and Terminal Phase"
+---
+
+```{r setup, include=FALSE}
+library(PKNCA)
+library(dplyr)
+library(ggplot2)
+conflicted::conflicts_prefer(dplyr::filter, dplyr::select, .quiet = TRUE)
+
+d_conc <- as.data.frame(Theoph) |> rename(time = Time, subject = Subject)
+d_dose <- Theoph |> as.data.frame() |>
+  group_by(Subject) |>
+  summarise(dose = Dose[1] * Wt[1], .groups = "drop") |>
+  rename(subject = Subject) |>
+  mutate(time = 0)
+o_conc <- PKNCAconc(d_conc, conc ~ time | subject)
+o_dose <- PKNCAdose(d_dose, dose ~ time | subject, route = "extravascular")
+```
+
+## How PKNCA estimates λz
+
+PKNCA uses **curve stripping**: it systematically evaluates all possible subsets of terminal-phase points (from 3 points up to the full tail), fits log-linear regression to each subset, and selects the best fit based on adjusted R².
+
+The selection criterion:
+$$\text{adj.} R^2_{\text{adj}} = R^2 - \text{adj.r.squared.factor} \times n_{\text{points}}$$
+
+The subset with the highest adjusted R² wins. The small penalty per point (`adj.r.squared.factor`, default 0.0001) prevents overfitting by discouraging very long windows unless they genuinely improve the fit.
+
+```{mermaid}
+flowchart TD
+    A["All points after Tmax"] --> B["Try subsets: last 3, last 4, ..., all"]
+    B --> C["Fit log-linear regression to each"]
+    C --> D{"Passes quality filters?\nλz > 0, R² ≥ threshold\nspan.ratio ≥ minimum"}
+    D -- yes --> E["Compute adj.R² with penalty"]
+    D -- no --> F["Discard subset"]
+    E --> G["Select highest adj.R²"]
+    G --> H["Return λz, half.life, R², n.points"]
+```
+
+---
+
+## Basic half-life output
+
+```{r}
+hl_interval <- data.frame(
+  start             = 0,
+  end               = Inf,
+  half.life         = TRUE,
+  lambda.z          = TRUE,
+  lambda.z.n.points = TRUE,
+  lambda.z.time.first = TRUE,
+  r.squared         = TRUE,
+  adj.r.squared     = TRUE,
+  span.ratio        = TRUE
+)
+
+o_nca <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = hl_interval))
+
+as.data.frame(o_nca) |>
+  filter(PPTESTCD %in% c("half.life", "lambda.z", "lambda.z.n.points",
+                          "lambda.z.time.first", "adj.r.squared", "span.ratio")) |>
+  select(subject, PPTESTCD, PPORRES) |>
+  tidyr::pivot_wider(names_from = PPTESTCD, values_from = PPORRES) |>
+  arrange(subject)
+```
+
+**What each output means:**
+
+| Parameter | Meaning |
+|---|---|
+| `lambda.z` | Terminal elimination rate constant (h⁻¹) |
+| `half.life` | ln(2) / λz |
+| `lambda.z.n.points` | Number of points used in the selected regression |
+| `lambda.z.time.first` | First timepoint included in the regression window |
+| `r.squared` / `adj.r.squared` | Fit quality of the selected regression |
+| `span.ratio` | (tlast − lambda.z.time.first) / half.life — must be ≥ `min.span.ratio` |
+
+---
+
+## Quality filters
+
+Four quality filters must all pass for a half-life to be accepted. Fail any one and the result is `NA`.
+
+### 1. Minimum number of points
+
+```{r}
+# Default: 3 points minimum
+# Raise to require stronger evidence
+o_data_4pts <- PKNCAdata(o_conc, o_dose, intervals = hl_interval,
+                          options = list(min.hl.points = 4))
+o_nca_4pts  <- pk.nca(o_data_4pts)
+
+as.data.frame(o_nca_4pts) |>
+  filter(PPTESTCD %in% c("half.life", "lambda.z.n.points")) |>
+  select(subject, PPTESTCD, PPORRES) |>
+  tidyr::pivot_wider(names_from = PPTESTCD, values_from = PPORRES) |>
+  arrange(subject)
+```
+
+### 2. Minimum adjusted R²
+
+```{r}
+# Default 0.9 — raise to 0.95 for stricter acceptance
+o_data_r2 <- PKNCAdata(o_conc, o_dose, intervals = hl_interval,
+                        options = list(min.hl.r.squared = 0.95))
+o_nca_r2  <- pk.nca(o_data_r2)
+
+as.data.frame(o_nca_r2) |>
+  filter(PPTESTCD %in% c("half.life", "adj.r.squared")) |>
+  select(subject, PPTESTCD, PPORRES) |>
+  tidyr::pivot_wider(names_from = PPTESTCD, values_from = PPORRES) |>
+  arrange(subject)
+```
+
+### 3. Span ratio
+
+The time span of the regression window must be at least `min.span.ratio × half.life` (default: 2). This prevents accepting a regression over too narrow a window relative to the half-life being estimated.
+
+```{r}
+# Relax span ratio — useful when sampling is sparse
+o_data_span <- PKNCAdata(o_conc, o_dose, intervals = hl_interval,
+                          options = list(min.span.ratio = 1))
+o_nca_span  <- pk.nca(o_data_span)
+
+as.data.frame(o_nca_span) |>
+  filter(PPTESTCD %in% c("half.life", "span.ratio")) |>
+  select(subject, PPTESTCD, PPORRES) |>
+  tidyr::pivot_wider(names_from = PPTESTCD, values_from = PPORRES) |>
+  arrange(subject)
+```
+
+### 4. Allow / exclude Tmax
+
+By default Tmax is excluded from the λz regression (drug may still be distributing).
+
+```{r}
+o_data_tmax <- PKNCAdata(o_conc, o_dose, intervals = hl_interval,
+                          options = list(allow.tmax.in.half.life = TRUE))
+o_nca_tmax  <- pk.nca(o_data_tmax)
+
+as.data.frame(o_nca_tmax) |>
+  filter(PPTESTCD %in% c("half.life", "lambda.z.n.points", "lambda.z.time.first")) |>
+  select(subject, PPTESTCD, PPORRES) |>
+  tidyr::pivot_wider(names_from = PPTESTCD, values_from = PPORRES) |>
+  arrange(subject)
+```
+
+---
+
+## Manually controlling which points are used
+
+### Excluding specific points (`exclude_half.life`)
+
+Mark individual observations that should never be included in the λz regression — for example, a suspected outlier or a resurgence peak.
+
+```{r}
+d_conc_excl <- d_conc |>
+  mutate(excl_hl = ifelse(subject == "1" & time > 16, TRUE, NA))
+
+o_conc_excl <- PKNCAconc(d_conc_excl, conc ~ time | subject,
+                          exclude_half.life = "excl_hl")
+
+o_nca_excl <- pk.nca(PKNCAdata(o_conc_excl, o_dose, intervals = hl_interval))
+
+# Compare n.points and lambda.z.time.first for subject 1
+bind_rows(
+  as.data.frame(o_nca) |>
+    filter(subject == "1", PPTESTCD %in% c("half.life", "lambda.z.n.points")) |>
+    mutate(version = "default"),
+  as.data.frame(o_nca_excl) |>
+    filter(subject == "1", PPTESTCD %in% c("half.life", "lambda.z.n.points")) |>
+    mutate(version = "late points excluded")
+) |>
+  select(version, PPTESTCD, PPORRES) |>
+  arrange(version, PPTESTCD)
+```
+
+### Forcing specific points (`include_half.life`)
+
+Mark points that **must** be included — they cannot be dropped even if excluding them would improve the fit. Useful for regulatory requirements.
+
+```{r}
+d_conc_incl <- d_conc |>
+  mutate(incl_hl = ifelse(subject == "1" & time %in% c(9.05, 12.12), TRUE, NA))
+
+o_conc_incl <- PKNCAconc(d_conc_incl, conc ~ time | subject,
+                          include_half.life = "incl_hl")
+
+o_nca_incl <- pk.nca(PKNCAdata(o_conc_incl, o_dose, intervals = hl_interval))
+
+as.data.frame(o_nca_incl) |>
+  filter(subject == "1",
+         PPTESTCD %in% c("half.life", "lambda.z.n.points", "lambda.z.time.first")) |>
+  select(PPTESTCD, PPORRES)
+```
+
+> **Note:** `include_half.life` forces the curve-stripping algorithm to always start at or before the earliest forced point. If the forced point is early in the profile, this can result in a worse fit (lower R²) — the point is still included even if it pulls the regression down.
+
+---
+
+## Tobit regression for BLQ-heavy data
+
+When many terminal-phase points are BLQ (below the limit of quantification), standard log-linear regression cannot use them. The **tobit method** treats BLQ observations as left-censored data and includes them in the likelihood.
+
+```{r}
+# Switch to tobit half-life method
+o_data_tobit <- PKNCAdata(o_conc, o_dose, intervals = hl_interval,
+                           options = list(hl_method = "tobit"))
+o_nca_tobit  <- pk.nca(o_data_tobit)
+
+bind_rows(
+  as.data.frame(o_nca) |>
+    filter(PPTESTCD %in% c("half.life", "lambda.z")) |>
+    mutate(method = "log-linear"),
+  as.data.frame(o_nca_tobit) |>
+    filter(PPTESTCD %in% c("half.life", "lambda.z")) |>
+    mutate(method = "tobit")
+) |>
+  select(subject, method, PPTESTCD, PPORRES) |>
+  tidyr::pivot_wider(names_from = PPTESTCD, values_from = PPORRES) |>
+  arrange(subject, method)
+```
+
+Additional tobit controls:
+
+```{r}
+# Penalise longer point windows in tobit (0 = no penalty, default)
+o_data_tobit2 <- PKNCAdata(o_conc, o_dose, intervals = hl_interval,
+  options = list(
+    hl_method             = "tobit",
+    tobit_n_points_penalty = 0.1,           # penalise extra points
+    tobit_optim_control   = list(maxit = 500)  # more optimiser iterations
+  )
+)
+```
+
+> The tobit method is most valuable when > 20–30% of terminal-phase observations are BLQ. For data with few BLQs, `"log-linear"` is preferred. See `vignette("v06-half-life-calculation-tobit", package = "PKNCA")` for a detailed comparison.
+
+---
+
+## Visualising the chosen regression window
+
+```{r}
+# Extract lambda.z.time.first and n.points to annotate the plot
+hl_results <- as.data.frame(o_nca) |>
+  filter(PPTESTCD %in% c("lambda.z.time.first", "lambda.z.n.points", "tmax")) |>
+  tidyr::pivot_wider(names_from = PPTESTCD, values_from = PPORRES)
+
+# Plot subject 1 with regression window highlighted
+subj1 <- d_conc |> filter(subject == "1")
+win   <- hl_results |> filter(subject == "1")
+start_t <- win$lambda.z.time.first
+
+ggplot(subj1, aes(x = time, y = conc)) +
+  geom_line(colour = "grey60") +
+  geom_point(aes(colour = time >= start_t), size = 3) +
+  scale_colour_manual(values = c("FALSE" = "grey60", "TRUE" = "firebrick"),
+                      labels = c("excluded from λz", "used in λz"),
+                      name = NULL) +
+  scale_y_log10() +
+  labs(title = "Subject 1 — terminal regression window (log scale)",
+       x = "Time (h)", y = "Concentration (mg/L) [log scale]") +
+  theme_minimal()
+```

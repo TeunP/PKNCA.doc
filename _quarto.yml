@@ -21,6 +21,9 @@ website:
           - user/intravascular.qmd
           - user/extravascular.qmd
           - user/sparse.qmd
+          - user/auc-methods.qmd
+          - user/halflife.qmd
+          - user/postprocessing.qmd
       - section: "Developer"
         contents:
           - dev/function-deps.qmd

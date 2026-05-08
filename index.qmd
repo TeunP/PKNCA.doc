@@ -71,16 +71,19 @@ This documentation separates IV and extravascular workflows because the route de
 
 → [Sparse PK sampling](user/sparse.qmd)
 
-## Not yet covered
+→ [AUC types and integration methods](user/auc-methods.qmd)
 
-The following PKNCA functionality is not yet documented here:
+→ [Half-life and terminal phase](user/halflife.qmd)
+
+→ [Post-processing: exclude, normalize, summarize](user/postprocessing.qmd)
+
+## Not yet covered
 
 | Topic | PKNCA vignette |
 |---|---|
 | Urine / fecal excretion (`ae`, `fe`, `clr`) | — |
-| Dose-normalised parameters (`auclast.dn`, `cmax.dn`) | — |
-| Steady-state parameters (`deg.fluc`, `swing`, `cav`, `ptr`) | — |
-| Superposition (multiple-dose projection) | `vignette("v20-superposition")` |
-| Time to steady state (`tss`) | `vignette("v22-time-to-steady-state")` |
-| Tobit half-life method | `vignette("v06-half-life-calculation-tobit")` |
-| Writing custom parameter functions | `vignette("v80-writing-parameter-functions")` |
+| Steady-state shape parameters (`deg.fluc`, `swing`, `cav`, `ptr`) | — |
+| Superposition (multiple-dose projection from single-dose data) | `vignette("v20-superposition", package="PKNCA")` |
+| Time to steady state (`pk.tss.monoexponential`) | `vignette("v22-time-to-steady-state", package="PKNCA")` |
+| Dose-aware interpolation / extrapolation | `vignette("v21-methods-for-dose-aware-interpolation-and-extrapolation", package="PKNCA")` |
+| Writing custom parameter functions | `vignette("v80-writing-parameter-functions", package="PKNCA")` |
