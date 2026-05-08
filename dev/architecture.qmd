@@ -136,12 +136,13 @@ PKNCA.options()
 # 2. Read a specific option
 PKNCA.options("min.hl.points")
 
-# 3. Set globally (affects all subsequent analyses in the session)
-old <- PKNCA.options(min.hl.points = 4)
+# 3. Set globally — save the old value first so you can restore it
+old_val <- PKNCA.options("min.hl.points")[[1]]
+PKNCA.options(min.hl.points = 4)
 PKNCA.options("min.hl.points")
 
-# 4. Restore previous value — must use do.call, not PKNCA.options(old) directly
-do.call(PKNCA.options, old)
+# 4. Restore by passing the saved value as a named argument
+PKNCA.options(min.hl.points = old_val)
 PKNCA.options("min.hl.points")
 ```
 
