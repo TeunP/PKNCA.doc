@@ -6,6 +6,7 @@ title: "Extravascular (Oral/SC) Examples"
 library(PKNCA)
 library(dplyr)
 library(ggplot2)
+conflicted::conflicts_prefer(dplyr::filter, dplyr::select, .quiet = TRUE)
 ```
 
 ## The EV dataset: Theophylline
@@ -69,7 +70,7 @@ o_data <- PKNCAdata(o_conc, o_dose, intervals = ev_intervals)
 o_nca  <- pk.nca(o_data)
 
 as.data.frame(o_nca) |>
-  select(subject, PPTESTCD, PPORRES, PPORRESU) |>
+  select(subject, PPTESTCD, PPORRES) |>
   arrange(subject, PPTESTCD)
 ```
 
@@ -413,7 +414,7 @@ o_nca_u  <- pk.nca(o_data_u)
 
 as.data.frame(o_nca_u) |>
   filter(PPTESTCD %in% c("auclast", "aucinf.obs", "cl.obs", "half.life")) |>
-  select(subject, PPTESTCD, PPORRES, PPORRESU) |>
+  select(subject, PPTESTCD, PPORRES) |>
   arrange(subject, PPTESTCD)
 ```
 

@@ -4,8 +4,9 @@ title: "Intravascular (IV) Examples"
 
 ```{r setup, include=FALSE}
 library(PKNCA)
-library(dplyr)
+library(dplyr)    # load after PKNCA so dplyr::filter wins
 library(ggplot2)
+conflicted::conflicts_prefer(dplyr::filter, dplyr::select, .quiet = TRUE)
 ```
 
 ## The IV dataset: Indomethacin
@@ -75,7 +76,7 @@ o_data <- PKNCAdata(o_conc, o_dose, intervals = iv_intervals, impute = "start_co
 o_nca  <- pk.nca(o_data)
 
 as.data.frame(o_nca) |>
-  select(Subject, PPTESTCD, PPORRESU, PPORRES) |>
+  select(Subject, PPTESTCD, PPORRES) |>
   arrange(Subject, PPTESTCD)
 ```
 
@@ -91,7 +92,7 @@ Tmax is the time of that first sample.
 ```{r}
 as.data.frame(o_nca) |>
   filter(PPTESTCD %in% c("cmax", "tmax")) |>
-  select(Subject, PPTESTCD, PPORRES, PPORRESU)
+  select(Subject, PPTESTCD, PPORRES)
 ```
 
 ### C0 — extrapolated initial concentration
@@ -112,7 +113,7 @@ o_nca_c0  <- pk.nca(o_data_c0)
 
 as.data.frame(o_nca_c0) |>
   filter(PPTESTCD %in% c("c0", "cmax", "auclast", "aucinf.obs")) |>
-  select(Subject, PPTESTCD, PPORRES, PPORRESU) |>
+  select(Subject, PPTESTCD, PPORRES) |>
   arrange(Subject, PPTESTCD)
 ```
 
@@ -142,7 +143,7 @@ o_nca_auc  <- pk.nca(o_data_auc)
 
 as.data.frame(o_nca_auc) |>
   filter(PPTESTCD %in% c("auclast", "aucinf.obs", "aucinf.pred", "aucpext.obs")) |>
-  select(Subject, PPTESTCD, PPORRES, PPORRESU) |>
+  select(Subject, PPTESTCD, PPORRES) |>
   arrange(Subject, PPTESTCD)
 ```
 
@@ -234,7 +235,7 @@ o_nca_cl  <- pk.nca(o_data_cl)
 
 as.data.frame(o_nca_cl) |>
   filter(PPTESTCD %in% c("cl.obs", "cl.pred", "vz.obs", "vz.pred")) |>
-  select(Subject, PPTESTCD, PPORRES, PPORRESU) |>
+  select(Subject, PPTESTCD, PPORRES) |>
   arrange(Subject, PPTESTCD)
 ```
 
@@ -257,7 +258,7 @@ o_nca_mrt  <- pk.nca(o_data_mrt)
 
 as.data.frame(o_nca_mrt) |>
   filter(grepl("^mrt", PPTESTCD)) |>
-  select(Subject, PPTESTCD, PPORRES, PPORRESU)
+  select(Subject, PPTESTCD, PPORRES)
 ```
 
 ---
@@ -300,7 +301,7 @@ o_data_partial <- PKNCAdata(o_conc, o_dose, intervals = partial_auc, impute = "s
 o_nca_partial  <- pk.nca(o_data_partial)
 
 as.data.frame(o_nca_partial) |>
-  select(Subject, PPTESTCD, PPORRES, PPORRESU) |>
+  select(Subject, PPTESTCD, PPORRES) |>
   arrange(Subject)
 ```
 
@@ -327,7 +328,7 @@ o_nca_u  <- pk.nca(o_data_u)
 
 as.data.frame(o_nca_u) |>
   filter(PPTESTCD %in% c("auclast", "cl.obs", "vz.obs")) |>
-  select(Subject, PPTESTCD, PPORRES, PPORRESU) |>
+  select(Subject, PPTESTCD, PPORRES) |>
   arrange(Subject, PPTESTCD)
 ```
 
