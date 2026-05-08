@@ -215,20 +215,43 @@ PKNCA.set.summary(
 
 ## Business summary helpers
 
-PKNCA exports two summary functions suitable for use in regulatory submission tables. They are also used internally when `PKNCA.set.summary()` is called with defaults.
+PKNCA exports the full set of `business.*` summary functions. These are used internally by `PKNCA.set.summary()` and are also available directly for custom reporting pipelines.
 
-| Function | Formula | Typical use |
+| Function | Returns | Description |
 |---|---|---|
-| `business.geomean(x)` | exp(mean(log(x))) | Geometric mean |
-| `business.geocv(x)` | sqrt(exp(var(log(x))) − 1) × 100 | Geometric coefficient of variation (%) |
+| `business.geomean(x)` | scalar | Geometric mean: exp(mean(log(x))) |
+| `business.geocv(x)` | scalar | Geometric CV%: sqrt(exp(var(log(x)))−1) × 100 |
+| `business.mean(x)` | scalar | Arithmetic mean |
+| `business.sd(x)` | scalar | Standard deviation |
+| `business.cv(x)` | scalar | Coefficient of variation %: sd/mean × 100 |
+| `business.median(x)` | scalar | Median |
+| `business.min(x)` | scalar | Minimum |
+| `business.max(x)` | scalar | Maximum |
+| `business.range(x)` | length-2 vector | c(min, max) |
 
 ```{r}
 x <- c(10.2, 11.8, 9.6, 12.1, 10.5)
-cat("Geometric mean:", business.geomean(x), "\n")
-cat("Geometric CV%: ", business.geocv(x),   "\n")
+data.frame(
+  statistic = c("geomean", "geocv", "mean", "sd", "cv%", "median", "min", "max"),
+  value = c(
+    business.geomean(x), business.geocv(x),
+    business.mean(x),    business.sd(x),    business.cv(x),
+    business.median(x),  business.min(x),   business.max(x)
+  )
+)
 ```
 
-These are useful when computing summary statistics outside of `summary()`, for example in custom reporting pipelines.
+Use these as `point` and `spread` arguments to `PKNCA.set.summary()`:
+
+```{r}
+# Arithmetic mean ± CV% for Cmax
+PKNCA.set.summary(
+  "cmax",
+  description = "mean [CV%]",
+  point  = business.mean,
+  spread = business.cv
+)
+```
 
 ---
 
@@ -281,12 +304,14 @@ Built-in imputation strategies:
 | Strategy | When it applies | What it does |
 |---|---|---|
 | `"start_conc0"` | Interval start before first measured time | Adds conc = 0 at the interval start time |
-| `"start_predose"` | Interval start before first measured time | Uses the last pre-dose concentration |
-| `"none"` | Any | No imputation — interval must start at or after first sample |
+| `"start_predose"` | Interval start before first measured time | Uses the last pre-dose (pre-interval) concentration |
+| `"start_cmin"` | Interval start before first measured time | Uses the minimum observed concentration in the interval |
+
+All three strategies are implemented as exported functions — `PKNCA_impute_method_start_conc0()`, `PKNCA_impute_method_start_predose()`, `PKNCA_impute_method_start_cmin()` — and can also be referenced by their string names.
 
 ```{r}
-# Default (no imputation) vs start_conc0
-d_conc_imp <- d_conc_pp |> filter(subject == "1")
+# Theoph subject 1 starts at t=0 — simulate a dataset with no t=0 sample
+d_conc_imp <- d_conc_pp |> filter(subject == "1", time > 0)
 o_conc_imp <- PKNCAconc(d_conc_imp, conc ~ time | subject)
 o_dose_imp <- PKNCAdose(
   d_dose_pp |> filter(subject == "1"),
@@ -294,18 +319,20 @@ o_dose_imp <- PKNCAdose(
   route = "extravascular"
 )
 
-# Without imputation: interval must start at/after first timepoint (0)
-o_nca_noimpt <- pk.nca(PKNCAdata(o_conc_imp, o_dose_imp,
-  intervals = data.frame(start = 0, end = Inf, auclast = TRUE)))
+ivl <- data.frame(start = 0, end = Inf, auclast = TRUE)
 
-# With start_conc0: adds a 0 at t = 0 if not present
-o_nca_impt <- pk.nca(PKNCAdata(o_conc_imp, o_dose_imp,
-  intervals = data.frame(start = 0, end = Inf, auclast = TRUE),
-  impute = "start_conc0"))
+r_conc0   <- pk.nca(PKNCAdata(o_conc_imp, o_dose_imp, intervals = ivl, impute = "start_conc0"))
+r_cmin    <- pk.nca(PKNCAdata(o_conc_imp, o_dose_imp, intervals = ivl, impute = "start_cmin"))
+
+# start_predose uses last pre-dose conc; with no pre-dose sample it returns NA
+r_predose <- pk.nca(PKNCAdata(o_conc_imp, o_dose_imp, intervals = ivl, impute = "start_predose"))
 
 bind_rows(
-  as.data.frame(o_nca_noimpt) |> filter(PPTESTCD=="auclast") |> mutate(impute="none"),
-  as.data.frame(o_nca_impt)   |> filter(PPTESTCD=="auclast") |> mutate(impute="start_conc0")
+  as.data.frame(r_conc0)   |> filter(PPTESTCD == "auclast") |> mutate(strategy = "start_conc0"),
+  as.data.frame(r_cmin)    |> filter(PPTESTCD == "auclast") |> mutate(strategy = "start_cmin"),
+  as.data.frame(r_predose) |> filter(PPTESTCD == "auclast") |> mutate(strategy = "start_predose")
 ) |>
-  select(impute, PPTESTCD, PPORRES)
+  select(strategy, PPTESTCD, PPORRES)
 ```
+
+> **Choosing a strategy:** `start_conc0` is appropriate for drugs fully eliminated between doses or for the first dose. `start_predose` is appropriate when a pre-dose (trough) sample was collected. `start_cmin` is a conservative option when no pre-dose sample was collected and a zero is not pharmacologically appropriate.

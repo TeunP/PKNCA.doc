@@ -78,19 +78,48 @@ as.data.frame(o_nca) |>
 
 ## Parameter reference
 
-### Cmax and Tmax
+### Concentration and time landmarks
 
-Cmax is the maximum observed concentration. Tmax is the time at which it occurs.
+| Parameter | Meaning |
+|---|---|
+| `cmax` | Maximum observed concentration |
+| `tmax` | Time of Cmax |
+| `cmin` | Minimum observed concentration in the interval |
+| `tfirst` | First time with a non-zero (non-BLQ) concentration |
+| `tlast` | Last time with a measurable concentration |
+| `clast.obs` | Observed concentration at `tlast` |
+| `clast.pred` | Predicted concentration at `tlast` (from λz fit) |
+| `count_conc` | Total observations (including BLQ) |
+| `count_conc_measured` | Observations above the LLOQ |
+| `lambda.z.time.last` | Last timepoint used in the λz regression |
 
 ```{r}
-as.data.frame(o_nca) |>
-  filter(PPTESTCD %in% c("cmax", "tmax")) |>
+lm_interval <- data.frame(
+  start               = 0,
+  end                 = Inf,
+  cmax                = TRUE,
+  tmax                = TRUE,
+  cmin                = TRUE,
+  tfirst              = TRUE,
+  tlast               = TRUE,
+  clast.obs           = TRUE,
+  clast.pred          = TRUE,
+  count_conc          = TRUE,
+  count_conc_measured = TRUE
+)
+
+o_nca_lm <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = lm_interval))
+
+as.data.frame(o_nca_lm) |>
+  filter(PPTESTCD %in% c("cmax","tmax","cmin","tfirst","tlast",
+                          "clast.obs","clast.pred","count_conc","count_conc_measured")) |>
   select(subject, PPTESTCD, PPORRES) |>
-  tidyr::pivot_wider(names_from = PPTESTCD, values_from = PPORRES) |>
-  arrange(subject)
+  arrange(subject, PPTESTCD)
 ```
 
 **When there are multiple peaks** (fed state, enterohepatic recirculation), the default is to return the first Tmax. Control this with `first.tmax`:
+
+> **`first.tmin`** works the same way for the minimum concentration: `options = list(first.tmin = TRUE)` returns the first occurrence of Cmin; `FALSE` returns the last.
 
 ```{r}
 # Use the last Tmax when there are ties
@@ -221,20 +250,73 @@ as.data.frame(o_nca_vss) |>
   arrange(subject, PPTESTCD)
 ```
 
+### Vss variants
+
+For extravascular dosing, `vss.obs` and `vss.pred` are the apparent Vss (i.e., Vss/F). `vss.last` uses MRTlast instead of the extrapolated MRT.
+
+```{r}
+vss_all_params <- data.frame(
+  start    = 0, end = Inf,
+  vss.obs  = TRUE,
+  vss.pred = TRUE,
+  vss.last = TRUE
+)
+o_nca_vss_all <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = vss_all_params))
+as.data.frame(o_nca_vss_all) |>
+  filter(grepl("^vss", PPTESTCD)) |>
+  select(subject, PPTESTCD, PPORRES) |>
+  arrange(subject, PPTESTCD)
+```
+
+### MRT variants
+
+| Parameter | Meaning |
+|---|---|
+| `mrt.last` | AUMC(0–last) / AUC(0–last) |
+| `mrt.obs` | AUMC(0–∞) / AUC(0–∞), observed Clast |
+| `mrt.pred` | AUMC(0–∞) / AUC(0–∞), predicted Clast |
+
+```{r}
+mrt_ev_params <- data.frame(
+  start    = 0, end = Inf,
+  mrt.last = TRUE,
+  mrt.obs  = TRUE,
+  mrt.pred = TRUE
+)
+o_nca_mrt_ev <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = mrt_ev_params))
+as.data.frame(o_nca_mrt_ev) |>
+  filter(grepl("^mrt", PPTESTCD)) |>
+  select(subject, PPTESTCD, PPORRES) |>
+  arrange(subject, PPTESTCD)
+```
+
 ### Effective half-life and kel
+
+All extravascular effective half-life and elimination rate constant variants:
+
+| Parameter | Based on |
+|---|---|
+| `thalf.eff.last` | `mrt.last` |
+| `thalf.eff.obs` | `mrt.obs` |
+| `thalf.eff.pred` | `mrt.pred` |
+| `kel.obs` | λz (from half-life fit, observed) |
+| `kel.pred` | λz (from half-life fit, predicted Clast) |
+| `kel.last` | λz (last window only) |
 
 ```{r}
 eff_params <- data.frame(
-  start          = 0,
-  end            = Inf,
-  thalf.eff.obs  = TRUE,   # ln(2) × MRT — accumulation half-life
-  thalf.eff.pred = TRUE,
-  kel.obs        = TRUE    # elimination rate constant (= λz)
+  start           = 0, end = Inf,
+  thalf.eff.last  = TRUE,
+  thalf.eff.obs   = TRUE,
+  thalf.eff.pred  = TRUE,
+  kel.obs         = TRUE,
+  kel.pred        = TRUE,
+  kel.last        = TRUE
 )
 
 o_nca_eff <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = eff_params))
 as.data.frame(o_nca_eff) |>
-  filter(PPTESTCD %in% c("thalf.eff.obs", "thalf.eff.pred", "kel.obs")) |>
+  filter(grepl("^(thalf|kel)", PPTESTCD)) |>
   select(subject, PPTESTCD, PPORRES) |>
   arrange(subject, PPTESTCD)
 ```
@@ -511,18 +593,38 @@ summary(o_nca)
 
 ## Full parameter list for extravascular
 
+All extravascular-relevant parameters you can request in an interval:
+
 ```{r}
 interval_cols <- get.interval.cols()
 ev_relevant <- c(
-  "cmax", "tmax", "cmin", "tmin",
-  "auclast", "aucinf.obs", "aucinf.pred",
+  # Concentration / time landmarks
+  "cmax", "tmax", "cmin", "tfirst", "tlast", "tlag",
+  "clast.obs", "clast.pred", "count_conc", "count_conc_measured",
+  # AUC family
+  "auclast", "aucall", "aucinf.obs", "aucinf.pred",
   "aucpext.obs", "aucpext.pred",
-  "half.life", "lambda.z", "lambda.z.n.points",
-  "r.squared", "adj.r.squared",
-  "cl.obs", "cl.pred", "vz.obs", "vz.pred",
-  "mrt.last", "mrt.obs",
-  "tlast", "tfirst", "clast.obs"
+  "aucint.last", "aucint.last.dose", "aucint.all", "aucint.all.dose",
+  "aucint.inf.obs", "aucint.inf.obs.dose",
+  # AUMC
+  "aumclast", "aumcall", "aumcinf.obs", "aumcinf.pred",
+  # Half-life / λz
+  "half.life", "lambda.z", "lambda.z.n.points", "lambda.z.time.first", "lambda.z.time.last",
+  "r.squared", "adj.r.squared", "span.ratio",
+  # Clearance (apparent)
+  "cl.obs", "cl.pred", "cl.last", "cl.all",
+  # Volume (apparent)
+  "vz.obs", "vz.pred", "vss.obs", "vss.pred", "vss.last",
+  # MRT
+  "mrt.last", "mrt.obs", "mrt.pred",
+  # Effective half-life / kel
+  "thalf.eff.last", "thalf.eff.obs", "thalf.eff.pred",
+  "kel.obs", "kel.pred", "kel.last",
+  # Bioavailability
+  "f",
+  # Dose-normalized
+  "auclast.dn", "aucinf.obs.dn", "cmax.dn", "clast.obs.dn"
 )
 
-names(interval_cols)[names(interval_cols) %in% ev_relevant]
+sort(names(interval_cols)[names(interval_cols) %in% ev_relevant])
 ```

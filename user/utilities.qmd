@@ -172,3 +172,65 @@ dn_params <- names(cols)[endsWith(names(cols), ".dn")]
 cat("Dose-normalized parameters:\n")
 cat(paste(" -", dn_params), sep = "\n")
 ```
+
+---
+
+## Modifying PKNCAdose after creation: `setRoute()` and `setDuration()`
+
+After creating a `PKNCAdose` object, you can change the route or infusion duration without rebuilding from scratch.
+
+```{r}
+d_dose_u <- data.frame(subject = "1", dose = 100, time = 0)
+o_dose_u <- PKNCAdose(d_dose_u, dose ~ time | subject, route = "extravascular")
+
+# Change to intravascular
+o_dose_iv <- setRoute(o_dose_u, route = "intravascular")
+
+# Add infusion duration (0.5 h = 30 min)
+o_dose_inf <- setDuration(o_dose_iv, duration = 0.5)
+
+# Verify
+o_dose_inf$data[c("route", "duration")]
+```
+
+This is useful when you want to test how route assumption changes affect MRT or Vss calculations without rebuilding the full `PKNCAdata` object.
+
+---
+
+## Getting parameter dependencies: `get.parameter.deps()`
+
+Returns the upstream parameters that a given parameter depends on. Useful when debugging why a parameter is `NA` (a dependency may have failed).
+
+```{r}
+get.parameter.deps("vss.obs")
+```
+
+```{r}
+get.parameter.deps("half.life")
+```
+
+---
+
+## Describing PKNCA options: `PKNCA.options.describe()`
+
+Returns a human-readable description of each option and its current value:
+
+```{r}
+PKNCA.options.describe()
+```
+
+---
+
+## Choosing an option value: `PKNCA.choose.option()`
+
+Selects a value from either the local `options` list passed to `PKNCAdata()` or the global `PKNCA.options()` defaults. Useful when writing custom parameter functions that need to respect session-level settings.
+
+```{r}
+# With no local override, returns the global default
+PKNCA.choose.option("min.hl.points", options = list())
+```
+
+```{r}
+# With a local override, the local value wins
+PKNCA.choose.option("min.hl.points", options = list(min.hl.points = 5))
+```

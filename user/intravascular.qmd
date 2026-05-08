@@ -84,15 +84,45 @@ as.data.frame(o_nca) |>
 
 ## Parameter reference: what each one means
 
-### Cmax and Tmax
+### Cmax, Tmax, Cmin, Tfirst, Tlast, Clast
 
-For IV bolus, Cmax is the first measured concentration (no absorption phase).
-Tmax is the time of that first sample.
+For IV bolus, Cmax is the first measured concentration (no absorption phase). Tmax is the time of that first sample.
+
+| Parameter | Meaning |
+|---|---|
+| `cmax` | Maximum observed concentration |
+| `tmax` | Time of Cmax |
+| `cmin` | Minimum observed concentration in the interval |
+| `tfirst` | First time with a non-zero (or non-BLQ) concentration |
+| `tlast` | Last time with a measurable concentration |
+| `clast.obs` | Observed concentration at `tlast` |
+| `clast.pred` | Predicted concentration at `tlast` (from λz fit) |
+| `count_conc` | Total number of concentration observations (including BLQ) |
+| `count_conc_measured` | Number of observations above the LLOQ |
+| `lambda.z.time.last` | Last timepoint included in the λz regression |
 
 ```{r}
-as.data.frame(o_nca) |>
-  filter(PPTESTCD %in% c("cmax", "tmax")) |>
-  select(Subject, PPTESTCD, PPORRES)
+landmark_params <- data.frame(
+  start               = first_t,
+  end                 = Inf,
+  cmax                = TRUE,
+  tmax                = TRUE,
+  cmin                = TRUE,
+  tfirst              = TRUE,
+  tlast               = TRUE,
+  clast.obs           = TRUE,
+  clast.pred          = TRUE,
+  count_conc          = TRUE,
+  count_conc_measured = TRUE
+)
+
+o_nca_lm <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = landmark_params, impute = "start_conc0"))
+
+as.data.frame(o_nca_lm) |>
+  filter(PPTESTCD %in% c("cmax","tmax","cmin","tfirst","tlast",
+                          "clast.obs","clast.pred","count_conc","count_conc_measured")) |>
+  select(Subject, PPTESTCD, PPORRES) |>
+  arrange(Subject, PPTESTCD)
 ```
 
 ### C0 — extrapolated initial concentration
@@ -252,12 +282,29 @@ MRT quantifies the average time a drug molecule spends in the body.
 
 For IV, the AUMC (area under the first moment curve) method gives:
 
+All MRT variants for IV:
+
+| Parameter | Meaning |
+|---|---|
+| `mrt.iv.last` | MRT using AUMClast and AUClast (IV correction) |
+| `mrt.iv.obs` | MRT extrapolated to ∞, observed Clast (IV correction) |
+| `mrt.iv.pred` | MRT extrapolated to ∞, predicted Clast (IV correction) |
+| `mrt.last` | MRT using AUMClast (no IV correction) |
+| `mrt.obs` | MRT extrapolated to ∞, observed Clast (no IV correction) |
+| `mrt.pred` | MRT extrapolated to ∞, predicted Clast (no IV correction) |
+
+The IV-corrected variants (`mrt.iv.*`) subtract τ/2 from the MRT to account for the bolus injection: MRT_IV = AUMC/AUC − 0 (for bolus). The non-IV variants (`mrt.*`) use the raw AUMC/AUC ratio.
+
 ```{r}
 mrt_params <- data.frame(
   start       = first_t,
   end         = Inf,
   mrt.iv.last = TRUE,
-  mrt.iv.obs  = TRUE
+  mrt.iv.obs  = TRUE,
+  mrt.iv.pred = TRUE,
+  mrt.last    = TRUE,
+  mrt.obs     = TRUE,
+  mrt.pred    = TRUE
 )
 
 o_data_mrt <- PKNCAdata(o_conc, o_dose, intervals = mrt_params, impute = "start_conc0")
@@ -265,7 +312,8 @@ o_nca_mrt  <- pk.nca(o_data_mrt)
 
 as.data.frame(o_nca_mrt) |>
   filter(grepl("^mrt", PPTESTCD)) |>
-  select(Subject, PPTESTCD, PPORRES)
+  select(Subject, PPTESTCD, PPORRES) |>
+  arrange(Subject, PPTESTCD)
 ```
 
 ### Effective half-life and elimination rate constant
@@ -274,51 +322,91 @@ as.data.frame(o_nca_mrt) |>
 
 **kel** is the elimination rate constant — equivalent to λz but named differently in some regulatory contexts.
 
+All variants:
+
+| Parameter | Based on |
+|---|---|
+| `thalf.eff.iv.last` | `mrt.iv.last` |
+| `thalf.eff.iv.obs` | `mrt.iv.obs` |
+| `thalf.eff.iv.pred` | `mrt.iv.pred` |
+| `thalf.eff.last` | `mrt.last` |
+| `thalf.eff.obs` | `mrt.obs` |
+| `kel.obs` | λz (observed) |
+| `kel.pred` | λz (predicted Clast) |
+| `kel.last` | λz (last time window) |
+| `kel.iv.obs` | IV-specific kel, observed |
+| `kel.iv.pred` | IV-specific kel, predicted |
+| `kel.iv.last` | IV-specific kel, last window |
+
 ```{r}
 eff_params <- data.frame(
-  start            = first_t,
-  end              = Inf,
-  thalf.eff.iv.obs = TRUE,   # effective t½ via IV MRT
-  thalf.eff.obs    = TRUE,   # effective t½ via general MRT
-  kel.obs          = TRUE    # elimination rate constant (= λz)
+  start              = first_t,
+  end                = Inf,
+  thalf.eff.iv.last  = TRUE,
+  thalf.eff.iv.obs   = TRUE,
+  thalf.eff.iv.pred  = TRUE,
+  thalf.eff.last     = TRUE,
+  thalf.eff.obs      = TRUE,
+  kel.obs            = TRUE,
+  kel.pred           = TRUE,
+  kel.last           = TRUE,
+  kel.iv.obs         = TRUE,
+  kel.iv.pred        = TRUE,
+  kel.iv.last        = TRUE
 )
 
 o_nca_eff <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = eff_params, impute = "start_conc0"))
 
 as.data.frame(o_nca_eff) |>
-  filter(PPTESTCD %in% c("thalf.eff.iv.obs", "thalf.eff.obs", "kel.obs")) |>
+  filter(grepl("^(thalf|kel)", PPTESTCD)) |>
   select(Subject, PPTESTCD, PPORRES) |>
   arrange(Subject, PPTESTCD)
 ```
 
 ### IV-route AUC (`auciv*`)
 
-`auciv*` parameters compute AUC using IV-specific formulas. Unlike the general `auclast`/`aucinf.obs`, these treat the dose as a bolus at time 0 and are required when the first concentration (C0) is back-extrapolated rather than measured.
+`auciv*` parameters compute AUC using IV-specific formulas. Unlike the general `auclast`/`aucinf.obs`, these treat the dose as a bolus at time 0 and back-extrapolate C0 before integrating.
+
+Complete `auciv*` family:
 
 | Parameter | Meaning |
 |---|---|
-| `aucivlast` | AUC(0–last) using IV back-extrapolation to C0 |
+| `aucivlast` | AUC(0–last), IV method (C0 back-extrapolated) |
+| `aucivall` | AUC(0–last), IV method, BLQ treated as 0 |
 | `aucivinf.obs` | AUC(0–∞) IV method, observed Clast |
-| `aucivpbextlast` | % of `aucivinf.obs` beyond last sample (IV method) |
+| `aucivinf.pred` | AUC(0–∞) IV method, predicted Clast |
+| `aucivint.last` | AUC over interval [start,end], IV method, AUClast extrapolation |
+| `aucivint.all` | AUC over interval [start,end], IV method, AUCall extrapolation |
+| `aucivpbextlast` | % of `aucivinf.obs` beyond last sample (IV, last type) |
+| `aucivpbextall` | % of `aucivinf.obs` beyond last sample (IV, all type) |
+| `aucivpbextinf.obs` | % of `aucivinf.obs` that is extrapolated beyond the last sample |
+| `aucivpbextinf.pred` | Same using predicted Clast |
+| `aucivpbextint.last` | % extrapolated for interval-based auciv (last type) |
+| `aucivpbextint.all` | % extrapolated for interval-based auciv (all type) |
 
 ```{r}
 auciv_params <- data.frame(
-  start          = first_t,
-  end            = Inf,
-  aucivlast      = TRUE,
-  aucivinf.obs   = TRUE,
-  aucivpbextlast = TRUE
+  start              = first_t,
+  end                = Inf,
+  aucivlast          = TRUE,
+  aucivall           = TRUE,
+  aucivinf.obs       = TRUE,
+  aucivinf.pred      = TRUE,
+  aucivpbextlast     = TRUE,
+  aucivpbextall      = TRUE,
+  aucivpbextinf.obs  = TRUE,
+  aucivpbextinf.pred = TRUE
 )
 
 o_nca_auciv <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = auciv_params, impute = "start_conc0"))
 
 as.data.frame(o_nca_auciv) |>
-  filter(PPTESTCD %in% c("aucivlast", "aucivinf.obs", "aucivpbextlast")) |>
+  filter(grepl("^auciv", PPTESTCD)) |>
   select(Subject, PPTESTCD, PPORRES) |>
   arrange(Subject, PPTESTCD)
 ```
 
-> **When to use `auciv*` vs `auclast`/`aucinf.obs`:** For a true IV bolus where C0 is back-extrapolated (as in this example), `aucivlast` and `aucivinf.obs` give the more theoretically correct AUC. For practical purposes the numerical difference is usually small.
+> **When to use `auciv*` vs `auclast`/`aucinf.obs`:** For a true IV bolus where C0 is back-extrapolated, `aucivlast` and `aucivinf.obs` give the more theoretically correct AUC. For practical purposes the numerical difference is usually small.
 
 ---
 
@@ -432,20 +520,43 @@ summary(o_nca)
 
 ## Full parameter list for IV
 
-Below are all IV-relevant parameters you can request in an interval:
+All IV-relevant parameters you can request in an interval:
 
 ```{r}
-# Show all available interval columns
 interval_cols <- get.interval.cols()
 iv_relevant <- c(
-  "auclast", "aucinf.obs", "aucinf.pred", "aucpext.obs", "aucpext.pred",
-  "aumc.last", "aumc.inf.obs",
-  "c0", "cmax", "tmax", "tlast", "clast.obs",
-  "half.life", "lambda.z", "lambda.z.n.points", "r.squared", "adj.r.squared",
-  "cl.obs", "cl.pred", "vz.obs", "vz.pred",
-  "mrt.iv.last", "mrt.iv.obs", "mrt.iv.pred"
+  # Concentration / time landmarks
+  "c0", "cmax", "cmin", "tmax", "tfirst", "tlast",
+  "clast.obs", "clast.pred", "count_conc", "count_conc_measured",
+  # AUC family
+  "auclast", "aucall", "aucinf.obs", "aucinf.pred",
+  "aucpext.obs", "aucpext.pred",
+  "aucint.last", "aucint.last.dose", "aucint.all", "aucint.all.dose",
+  "aucint.inf.obs", "aucint.inf.obs.dose",
+  # IV-specific AUC
+  "aucivlast", "aucivall", "aucivinf.obs", "aucivinf.pred",
+  "aucivint.last", "aucivint.all",
+  "aucivpbextlast", "aucivpbextall", "aucivpbextinf.obs", "aucivpbextinf.pred",
+  # AUMC
+  "aumclast", "aumcall", "aumcinf.obs", "aumcinf.pred",
+  # Half-life / λz
+  "half.life", "lambda.z", "lambda.z.n.points", "lambda.z.time.first", "lambda.z.time.last",
+  "r.squared", "adj.r.squared", "span.ratio",
+  # Clearance
+  "cl.obs", "cl.pred", "cl.last", "cl.all",
+  # Volume
+  "vz.obs", "vz.pred", "vss.obs", "vss.pred", "vss.iv.obs", "vss.iv.pred",
+  "vss.last", "vss.iv.last",
+  # MRT
+  "mrt.iv.last", "mrt.iv.obs", "mrt.iv.pred", "mrt.last", "mrt.obs", "mrt.pred",
+  # Effective half-life / kel
+  "thalf.eff.iv.last", "thalf.eff.iv.obs", "thalf.eff.iv.pred",
+  "thalf.eff.last", "thalf.eff.obs",
+  "kel.obs", "kel.pred", "kel.last", "kel.iv.obs", "kel.iv.pred", "kel.iv.last",
+  # Dose-normalized
+  "auclast.dn", "aucinf.obs.dn", "cmax.dn", "clast.obs.dn"
 )
 
-# Which of these are registered in PKNCA?
-names(interval_cols)[names(interval_cols) %in% iv_relevant]
+# All registered in PKNCA
+sort(names(interval_cols)[names(interval_cols) %in% iv_relevant])
 ```

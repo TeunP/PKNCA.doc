@@ -87,22 +87,31 @@ as.data.frame(o_nca_partial) |>
 
 **All partial AUC variants:**
 
-| Parameter | End concentration | Extrapolation |
-|---|---|---|
-| `aucint.last` | Last observed in window | None |
-| `aucint.all` | Last observed, BLQs as 0 | None |
-| `aucint.inf.obs` | Extrapolated to ∞ (observed Clast) | λz-based tail |
-| `aucint.inf.pred` | Extrapolated to ∞ (predicted Clast) | λz-based tail |
+| Parameter | End concentration | Dose-aware boundary | Extrapolation |
+|---|---|---|---|
+| `aucint.last` | Last observed in window | No | None |
+| `aucint.all` | Last observed, BLQs as 0 | No | None |
+| `aucint.inf.obs` | Extrapolated to ∞, observed Clast | No | λz-based tail |
+| `aucint.inf.pred` | Extrapolated to ∞, predicted Clast | No | λz-based tail |
+| `aucint.last.dose` | Same as `.last` | **Yes** | None |
+| `aucint.all.dose` | Same as `.all` | **Yes** | None |
+| `aucint.inf.obs.dose` | Same as `.inf.obs` | **Yes** | λz-based tail |
+| `aucint.inf.pred.dose` | Same as `.inf.pred` | **Yes** | λz-based tail |
+
+The `.dose` variants use **dose-aware interpolation** (`interp.extrap.conc.dose()`) at the interval start and end. This matters when the interval boundary coincides with a dose time — the `.dose` variant correctly handles the before/after concentration jump.
 
 ```{r}
 # All partial AUC variants over a single window
 all_partial <- data.frame(
-  start            = 0,
-  end              = 8,
-  aucint.last      = TRUE,
-  aucint.all       = TRUE,
-  aucint.inf.obs   = TRUE,
-  aucint.inf.pred  = TRUE
+  start                = 0,
+  end                  = 8,
+  aucint.last          = TRUE,
+  aucint.all           = TRUE,
+  aucint.inf.obs       = TRUE,
+  aucint.inf.pred      = TRUE,
+  aucint.last.dose     = TRUE,
+  aucint.all.dose      = TRUE,
+  aucint.inf.obs.dose  = TRUE
 )
 
 o_nca_all_partial <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = all_partial))
@@ -349,14 +358,16 @@ as.data.frame(o_nca_aumc) |>
 | `cav.int.last` | 0 to last measurable |
 | `cav.int.all` | 0 to last, BLQ = 0 |
 | `cav.int.inf.obs` | 0 to ∞, observed Clast |
+| `cav.int.inf.pred` | 0 to ∞, predicted Clast |
 
 ```{r}
 cav_interval <- data.frame(
-  start            = 0,
-  end              = Inf,
-  cav.int.last     = TRUE,
-  cav.int.all      = TRUE,
-  cav.int.inf.obs  = TRUE
+  start             = 0,
+  end               = Inf,
+  cav.int.last      = TRUE,
+  cav.int.all       = TRUE,
+  cav.int.inf.obs   = TRUE,
+  cav.int.inf.pred  = TRUE
 )
 
 o_nca_cav <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = cav_interval))
