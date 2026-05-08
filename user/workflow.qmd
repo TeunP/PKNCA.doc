@@ -188,11 +188,13 @@ ggplot(auclast_df, aes(x = Subject, y = PPORRES)) +
 
 ---
 
-## Updating results
+## Re-running with different options
 
-Use `update()` to recalculate with modified settings without rebuilding from scratch:
+PKNCA does not have an `update()` method. To rerun with changed settings,
+pass a new `options` list to `PKNCAdata()` and call `pk.nca()` again:
 
 ```{r}
 # Change AUC method and recalculate
-o_nca_updated <- update(o_nca, data = update(o_data, options = list(auc.method = "linear")))
+o_data_linear <- PKNCAdata(o_conc, o_dose, options = list(auc.method = "linear"))
+o_nca_linear  <- pk.nca(o_data_linear)
 ```
