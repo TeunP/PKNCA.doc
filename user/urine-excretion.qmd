@@ -1,0 +1,215 @@
+---
+title: "Urine Excretion"
+---
+
+```{r setup, include=FALSE}
+library(PKNCA)
+library(dplyr)
+library(ggplot2)
+conflicted::conflicts_prefer(dplyr::filter, dplyr::select, .quiet = TRUE)
+```
+
+## Urine NCA overview
+
+Urine NCA characterizes how much drug is excreted in urine over time. Key parameters:
+
+| Parameter | Formula | Meaning |
+|---|---|---|
+| `ae` | Σ(concentration × volume) | Amount excreted in urine (mass) |
+| `fe` | ae / dose | Fraction of dose excreted unchanged |
+| `clr.obs` | ae / AUCinf.obs | Renal clearance — using observed Clast |
+| `clr.pred` | ae / AUCinf.pred | Renal clearance — using predicted Clast |
+| `clr.last` | ae / AUClast | Renal clearance — no extrapolation |
+
+---
+
+## Data structure for urine
+
+Urine NCA requires a **separate concentration object** for urine, with `volumeu` specifying the column that holds the urine volume collected in each interval.
+
+The key distinction from plasma NCA: urine concentrations represent **interval averages** rather than timepoint measurements. Each row covers the collection period from the previous sample to the current time.
+
+```{r}
+# Simulate urine collection for 4 subjects after a 100 mg IV bolus
+# Collections at: 0-2h, 2-6h, 6-12h, 12-24h
+set.seed(99)
+
+urine_collections <- expand.grid(
+  Subject     = factor(1:4),
+  end_time    = c(2, 6, 12, 24)
+) |>
+  mutate(
+    start_time = c(0, 2, 6, 12)[match(end_time, c(2, 6, 12, 24))],
+    # Simulated urine volume (mL) and concentration (mcg/mL)
+    volume_mL  = round(runif(n(), 80, 300)),
+    # Fraction excreted: ~30% in first 2h, 25% 2-6h, 20% 6-12h, 15% 12-24h
+    ae_target  = 100 * c(0.30, 0.25, 0.20, 0.15)[match(end_time, c(2, 6, 12, 24))],
+    ae_indiv   = ae_target * exp(rnorm(n(), 0, 0.1)),  # mild IIV
+    conc_mcg_mL = ae_indiv / volume_mL * 1000           # conc = amount / volume
+  ) |>
+  select(Subject, time = end_time, conc = conc_mcg_mL, volume = volume_mL)
+
+head(urine_collections)
+```
+
+```{r}
+# Plasma concentrations (IV bolus, same subjects)
+ke <- 0.1  # h^-1
+d_plasma <- expand.grid(
+  Subject = factor(1:4),
+  time    = c(0.5, 1, 2, 4, 6, 8, 12, 16, 24)
+) |>
+  mutate(
+    ke_i = ke * exp(rnorm(n(), 0, 0.15)),
+    conc = 100 / 30 * exp(-ke_i * time)   # dose/V * e^(-ke*t)
+  )
+
+d_dose <- data.frame(
+  Subject = factor(1:4),
+  dose    = 100,    # mg
+  time    = 0,
+  route   = "intravascular"
+)
+```
+
+---
+
+## Setting up urine PKNCAconc
+
+Use `concu` for concentration units and `volumeu` for the urine volume column name. The formula uses the same `conc ~ time | Subject` structure.
+
+```{r}
+o_conc_plasma <- PKNCAconc(d_plasma, conc ~ time | Subject)
+o_conc_urine  <- PKNCAconc(
+  urine_collections,
+  conc ~ time | Subject,
+  volume   = "volume",    # column with urine volume (mL)
+  duration = "collection" # optional: mark that these are interval collections
+)
+
+o_dose <- PKNCAdose(d_dose, dose ~ time | Subject, route = "intravascular")
+```
+
+---
+
+## Computing ae, fe, and renal clearance
+
+Request urine parameters in the intervals data frame. The interval `end` should match the last urine collection time.
+
+```{r}
+urine_intervals <- data.frame(
+  start     = 0,
+  end       = 24,
+  ae        = TRUE,
+  fe        = TRUE,
+  clr.obs   = TRUE,
+  clr.last  = TRUE,
+  # Also request plasma AUC for the combined object
+  auclast   = TRUE,
+  aucinf.obs = TRUE
+)
+
+# PKNCAdata accepts a list of conc objects when plasma and urine are separate
+o_data_ur <- PKNCAdata(
+  o_conc_plasma,
+  o_dose,
+  intervals = urine_intervals,
+  impute = "start_conc0"
+)
+
+# Add urine data
+o_data_ur$conc <- list(plasma = o_conc_plasma, urine = o_conc_urine)
+```
+
+> **Note:** PKNCA 0.12.1 support for combined plasma+urine in a single `PKNCAdata` is limited. The most reliable workflow is to run plasma NCA and urine NCA separately and join the results.
+
+---
+
+## Separate plasma + urine workflow
+
+This approach works reliably in PKNCA 0.12.1:
+
+```{r}
+# --- Plasma NCA ---
+o_plasma_data <- PKNCAdata(
+  o_conc_plasma, o_dose,
+  intervals = data.frame(start = 0, end = Inf,
+                         auclast = TRUE, aucinf.obs = TRUE),
+  impute = "start_conc0"
+)
+o_nca_plasma <- pk.nca(o_plasma_data)
+
+plasma_auc <- as.data.frame(o_nca_plasma) |>
+  filter(PPTESTCD %in% c("auclast", "aucinf.obs")) |>
+  select(Subject, PPTESTCD, PPORRES) |>
+  tidyr::pivot_wider(names_from = PPTESTCD, values_from = PPORRES)
+
+# --- Urine: compute ae manually ---
+# ae = concentration (mcg/mL) × volume (mL) / 1000  →  mg
+ae_by_subject <- urine_collections |>
+  mutate(ae_interval = conc * volume / 1000) |>  # mcg/mL * mL / 1000 = mg
+  group_by(Subject) |>
+  summarise(ae_total = sum(ae_interval), .groups = "drop")
+
+# --- Join and compute clr, fe ---
+dose_amt <- 100  # mg
+
+results <- plasma_auc |>
+  left_join(ae_by_subject, by = "Subject") |>
+  mutate(
+    fe       = ae_total / dose_amt,
+    clr_obs  = ae_total / aucinf.obs,
+    clr_last = ae_total / auclast
+  )
+
+results
+```
+
+---
+
+## Interpreting results
+
+```{r}
+results |>
+  mutate(across(where(is.numeric), \(x) round(x, 3))) |>
+  select(Subject, ae_total, fe, clr_obs, clr_last) |>
+  knitr::kable(
+    col.names = c("Subject", "Ae (mg)", "fe", "CLr.obs (L/h)", "CLr.last (L/h)"),
+    caption = "Urine NCA results — simulated IV bolus (dose = 100 mg)"
+  )
+```
+
+**Interpretation guide:**
+
+- `fe` near 0.30 means ~30% of dose is renally excreted unchanged. The remainder is metabolized or excreted by other routes.
+- `clr.obs` ≈ GFR (120 mL/min = 7.2 L/h) suggests renal filtration; higher values indicate active secretion.
+- `clr.last` < `clr.obs` is expected when the sampling window misses late excretion.
+
+---
+
+## Using the PKNCA `ae` parameter natively
+
+If your data are structured with urine as a separate concentration object and `PKNCAconc(..., volume = "vol_col")`, PKNCA can compute `ae` directly:
+
+```{r}
+# Structure for direct ae computation
+o_conc_ur2 <- PKNCAconc(
+  urine_collections,
+  conc ~ time | Subject,
+  volume = "volume"
+)
+
+ur_intervals <- data.frame(
+  start = 0,
+  end   = 24,
+  ae    = TRUE
+)
+
+o_data_ae <- PKNCAdata(o_conc_ur2, o_dose, intervals = ur_intervals)
+o_nca_ae  <- pk.nca(o_data_ae)
+
+as.data.frame(o_nca_ae) |>
+  filter(PPTESTCD == "ae") |>
+  select(Subject, PPORRES) |>
+  arrange(Subject)
+```

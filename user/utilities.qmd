@@ -1,0 +1,174 @@
+---
+title: "Utility Functions"
+---
+
+```{r setup, include=FALSE}
+library(PKNCA)
+library(dplyr)
+library(ggplot2)
+conflicted::conflicts_prefer(dplyr::filter, dplyr::select, .quiet = TRUE)
+```
+
+## Overview
+
+PKNCA exports several lower-level utility functions useful for data preparation, interval validation, and direct computation outside the full `PKNCAdata` → `pk.nca()` pipeline.
+
+---
+
+## BLQ concentration handling: `clean.conc.blq()`
+
+Applies the BLQ-handling rule to a concentration vector **before** fitting. The full analysis pipeline applies this automatically, but `clean.conc.blq()` is useful for pre-processing or testing your own rule.
+
+```{r}
+conc <- c(0.5, 0.3, 0,    0.1, 0,    0.0, 0.02)
+time <- c(0,   1,   2,    3,   4,    5,   6   )
+
+# Drop BLQ (0) values
+clean.conc.blq(conc, time, blq.treatment = "drop")
+```
+
+```{r}
+# Replace BLQ with half the LLOQ (= 0.05 here)
+clean.conc.blq(conc, time, blq.treatment = 0.05)
+```
+
+The `blq.treatment` argument accepts:
+- `"drop"` — remove BLQ rows
+- `"keep"` — keep BLQ rows as-is
+- A number — substitute BLQ values with that number
+
+---
+
+## NA concentration handling: `clean.conc.na()`
+
+Removes or replaces NA concentrations. Internally called before AUC computation.
+
+```{r}
+conc_na <- c(0.5, NA, 0.3, 0.1, NA)
+time_na <- c(0,   1,   2,   3,   4)
+
+# Default: drop NAs
+clean.conc.na(conc_na, time_na, na.treatment = "drop")
+```
+
+```{r}
+# Replace NAs with 0
+clean.conc.na(conc_na, time_na, na.treatment = 0)
+```
+
+---
+
+## Concentration interpolation / extrapolation: `interp.extrap.conc()`
+
+Interpolates or extrapolates a concentration at a target time given a known concentration-time profile. Used internally when an interval boundary falls between two observed timepoints.
+
+```{r}
+conc_ex <- c(10, 8, 5, 2.5, 1)
+time_ex <- c(0,  1, 2, 4,   8)
+
+# Interpolate at t = 3 (between t=2 and t=4)
+interp.extrap.conc(conc = conc_ex, time = time_ex, time.out = 3)
+```
+
+```{r}
+# Extrapolate beyond the last sample (t = 12)
+interp.extrap.conc(conc = conc_ex, time = time_ex, time.out = 12)
+```
+
+The method (linear vs log-linear) follows the `auc.method` setting. Extrapolation uses the terminal log-linear slope (requires at least 3 points for λz estimation).
+
+---
+
+## Direct half-life computation: `pk.calc.half.life()`
+
+Runs the full curve-stripping algorithm on raw concentration-time data and returns the selected half-life, λz, and associated diagnostics. Useful for batch processing outside the standard pipeline.
+
+```{r}
+subj1 <- as.data.frame(Theoph) |> filter(Subject == "1")
+
+hl_result <- pk.calc.half.life(
+  conc    = subj1$conc,
+  time    = subj1$Time,
+  options = PKNCA.options()
+)
+
+hl_result[c("half.life", "lambda.z", "r.squared", "lambda.z.n.points",
+            "lambda.z.time.first", "span.ratio")]
+```
+
+This is the same function called internally by `pk.nca()` when `half.life = TRUE`.
+
+---
+
+## Direct AUC computation: `pk.calc.auc.all()`
+
+Computes AUC (trapezoid rule) directly on a concentration-time vector. Returns the scalar AUC value.
+
+```{r}
+pk.calc.auc.all(
+  conc   = subj1$conc,
+  time   = subj1$Time,
+  method = "lin up/log down"
+)
+```
+
+Other direct AUC functions:
+
+| Function | AUC type |
+|---|---|
+| `pk.calc.auc.last()` | AUC to last measurable concentration |
+| `pk.calc.auc.all()` | AUC to last, treating BLQ as 0 |
+| `pk.calc.aucinf.obs()` | AUC extrapolated to ∞ (observed Clast) |
+| `pk.calc.aucinf.pred()` | AUC extrapolated to ∞ (predicted Clast) |
+
+These are the building blocks behind every AUC parameter in the registry.
+
+---
+
+## Validating interval specifications: `check.interval.specification()`
+
+Validates an intervals data frame before passing it to `PKNCAdata()`. Returns the data frame with all parameter columns filled in (missing columns defaulted to `FALSE`).
+
+```{r}
+my_intervals <- data.frame(
+  start    = 0,
+  end      = Inf,
+  auclast  = TRUE,
+  cmax     = TRUE
+)
+
+# Returns the full expanded interval spec
+expanded <- check.interval.specification(my_intervals)
+
+# Which parameters are requested?
+names(expanded)[as.logical(expanded[1, ])]
+```
+
+```{r}
+# Invalid specification — missing start column — raises an error
+tryCatch(
+  check.interval.specification(data.frame(end = Inf, auclast = TRUE)),
+  error = function(e) cat("Error:", conditionMessage(e), "\n")
+)
+```
+
+This is useful for debugging custom interval definitions before running the full analysis.
+
+---
+
+## Listing all available parameters
+
+```{r}
+cols <- get.interval.cols()
+cat("Total registered parameters:", length(cols), "\n")
+
+# Show first few with their dependency lists
+lapply(head(cols, 5), function(x) x$depends)
+```
+
+```{r}
+# All dose-normalized parameters
+dn_params <- names(cols)[endsWith(names(cols), ".dn")]
+cat("Dose-normalized parameters:\n")
+cat(paste(" -", dn_params), sep = "\n")
+```

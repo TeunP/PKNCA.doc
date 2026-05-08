@@ -240,6 +240,134 @@ as.data.frame(o_nca_aumc) |>
 
 ---
 
+## AUC above a threshold (`aucabove.*`)
+
+`aucabove.*` computes the area under the curve above a reference concentration — useful for quantifying time above a minimum effective concentration or below a toxicity threshold.
+
+| Parameter | Reference concentration |
+|---|---|
+| `aucabove.trough.all` | Ctrough (concentration at end of interval) |
+| `aucabove.predose.all` | Cpredose (concentration at interval start) |
+
+```{r}
+above_interval <- data.frame(
+  start              = 0,
+  end                = 24,
+  aucabove.trough.all  = TRUE,
+  aucabove.predose.all = TRUE,
+  ctrough              = TRUE,
+  cstart               = TRUE
+)
+
+o_nca_above <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = above_interval))
+
+as.data.frame(o_nca_above) |>
+  filter(PPTESTCD %in% c("aucabove.trough.all", "aucabove.predose.all", "ctrough", "cstart")) |>
+  select(PPTESTCD, PPORRES)
+```
+
+---
+
+## Time above a threshold (`time_above`)
+
+`time_above` computes the total duration (in time units) for which the concentration exceeds a specified threshold. The threshold is set via the `conc_above` column in the intervals data frame.
+
+```{r}
+# Time above 2 mg/L
+time_above_interval <- data.frame(
+  start      = 0,
+  end        = Inf,
+  time_above = TRUE,
+  conc_above = 2       # threshold concentration (same units as your data)
+)
+
+o_nca_ta <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = time_above_interval))
+
+as.data.frame(o_nca_ta) |>
+  filter(PPTESTCD == "time_above") |>
+  select(PPTESTCD, PPORRES)
+```
+
+---
+
+## Total dose (`totdose`)
+
+`totdose` is the total amount administered within the analysis interval — it is extracted from the dose object rather than computed from concentrations. Useful as a reference column in your results data frame.
+
+```{r}
+totdose_interval <- data.frame(
+  start    = 0,
+  end      = Inf,
+  totdose  = TRUE,
+  auclast  = TRUE
+)
+
+o_nca_td <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = totdose_interval))
+
+as.data.frame(o_nca_td) |>
+  filter(PPTESTCD %in% c("totdose", "auclast")) |>
+  select(PPTESTCD, PPORRES)
+```
+
+---
+
+## AUMC variants
+
+The **area under the first-moment curve** (AUMC) is used to calculate MRT.
+
+| Parameter | Meaning |
+|---|---|
+| `aumclast` | AUMC from 0 to last measurable concentration |
+| `aumcall` | AUMC from 0 to last, treating BLQ as 0 |
+| `aumc.inf.obs` | AUMC extrapolated to ∞, observed Clast |
+| `aumc.inf.pred` | AUMC extrapolated to ∞, predicted Clast |
+
+```{r}
+aumc_interval <- data.frame(
+  start         = 0,
+  end           = Inf,
+  aumclast      = TRUE,
+  aumcall       = TRUE,
+  aumc.inf.obs  = TRUE
+)
+
+o_nca_aumc <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = aumc_interval))
+
+as.data.frame(o_nca_aumc) |>
+  filter(PPTESTCD %in% c("aumclast", "aumcall", "aumc.inf.obs")) |>
+  select(PPTESTCD, PPORRES)
+```
+
+---
+
+## Cav over a specific interval (`cav.int.*`)
+
+`cav.int.*` computes the average concentration over a specified window using the trapezoidal rule, without requiring a full dosing-interval design.
+
+| Parameter | Window |
+|---|---|
+| `cav.int.last` | 0 to last measurable |
+| `cav.int.all` | 0 to last, BLQ = 0 |
+| `cav.int.inf.obs` | 0 to ∞, observed Clast |
+
+```{r}
+cav_interval <- data.frame(
+  start            = 0,
+  end              = Inf,
+  cav.int.last     = TRUE,
+  cav.int.all      = TRUE,
+  cav.int.inf.obs  = TRUE
+)
+
+o_nca_cav <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = cav_interval))
+
+as.data.frame(o_nca_cav) |>
+  filter(grepl("^cav.int", PPTESTCD)) |>
+  select(PPTESTCD, PPORRES)
+```
+
+---
+
 ## Concentration interpolation at interval boundaries
 
 When a requested interval boundary (e.g., `end = 8`) falls between two observed timepoints, PKNCA interpolates the concentration at that boundary before computing AUC.

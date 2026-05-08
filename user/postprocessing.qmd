@@ -210,3 +210,102 @@ PKNCA.set.summary(
   spread = function(x) c(min(x), max(x))
 )
 ```
+
+---
+
+## Business summary helpers
+
+PKNCA exports two summary functions suitable for use in regulatory submission tables. They are also used internally when `PKNCA.set.summary()` is called with defaults.
+
+| Function | Formula | Typical use |
+|---|---|---|
+| `business.geomean(x)` | exp(mean(log(x))) | Geometric mean |
+| `business.geocv(x)` | sqrt(exp(var(log(x))) − 1) × 100 | Geometric coefficient of variation (%) |
+
+```{r}
+x <- c(10.2, 11.8, 9.6, 12.1, 10.5)
+cat("Geometric mean:", business.geomean(x), "\n")
+cat("Geometric CV%: ", business.geocv(x),   "\n")
+```
+
+These are useful when computing summary statistics outside of `summary()`, for example in custom reporting pipelines.
+
+---
+
+## Inspecting the terminal regression window
+
+`get_halflife_points()` returns the individual observations that were included in the selected λz regression for each subject. Useful for QC review or plotting.
+
+```{r}
+d_conc_pp <- as.data.frame(Theoph) |> rename(time = Time, subject = Subject)
+d_dose_pp <- Theoph |> as.data.frame() |>
+  group_by(Subject) |>
+  summarise(dose = Dose[1] * Wt[1], .groups = "drop") |>
+  rename(subject = Subject) |>
+  mutate(time = 0)
+
+o_conc_pp <- PKNCAconc(d_conc_pp, conc ~ time | subject)
+o_dose_pp <- PKNCAdose(d_dose_pp, dose ~ time | subject, route = "extravascular")
+o_nca_pp  <- pk.nca(PKNCAdata(o_conc_pp, o_dose_pp,
+                               intervals = data.frame(start=0, end=Inf, half.life=TRUE)))
+
+# Get the points used in each subject's terminal regression
+hl_pts <- get_halflife_points(o_nca_pp)
+head(hl_pts)
+```
+
+```{r}
+# Plot: highlight regression points for subject 1
+subj1_conc <- d_conc_pp |> filter(subject == "1")
+subj1_pts  <- hl_pts    |> filter(subject == "1")
+
+ggplot(subj1_conc, aes(x = time, y = conc)) +
+  geom_line(colour = "grey70") +
+  geom_point(colour = "grey50", size = 2) +
+  geom_point(data = subj1_pts, aes(x = time, y = conc),
+             colour = "firebrick", size = 3, shape = 21, fill = "firebrick", alpha = 0.6) +
+  scale_y_log10() +
+  labs(title = "Subject 1 — points used in λz regression (red)",
+       x = "Time (h)", y = "Concentration (mg/L) [log scale]") +
+  theme_minimal()
+```
+
+---
+
+## Imputation methods
+
+PKNCA supports pre-dose and post-dose concentration imputation strategies, controlled by the `impute` argument to `PKNCAdata()` or by columns in the concentration data.
+
+Built-in imputation strategies:
+
+| Strategy | When it applies | What it does |
+|---|---|---|
+| `"start_conc0"` | Interval start before first measured time | Adds conc = 0 at the interval start time |
+| `"start_predose"` | Interval start before first measured time | Uses the last pre-dose concentration |
+| `"none"` | Any | No imputation — interval must start at or after first sample |
+
+```{r}
+# Default (no imputation) vs start_conc0
+d_conc_imp <- d_conc_pp |> filter(subject == "1")
+o_conc_imp <- PKNCAconc(d_conc_imp, conc ~ time | subject)
+o_dose_imp <- PKNCAdose(
+  d_dose_pp |> filter(subject == "1"),
+  dose ~ time | subject,
+  route = "extravascular"
+)
+
+# Without imputation: interval must start at/after first timepoint (0)
+o_nca_noimpt <- pk.nca(PKNCAdata(o_conc_imp, o_dose_imp,
+  intervals = data.frame(start = 0, end = Inf, auclast = TRUE)))
+
+# With start_conc0: adds a 0 at t = 0 if not present
+o_nca_impt <- pk.nca(PKNCAdata(o_conc_imp, o_dose_imp,
+  intervals = data.frame(start = 0, end = Inf, auclast = TRUE),
+  impute = "start_conc0"))
+
+bind_rows(
+  as.data.frame(o_nca_noimpt) |> filter(PPTESTCD=="auclast") |> mutate(impute="none"),
+  as.data.frame(o_nca_impt)   |> filter(PPTESTCD=="auclast") |> mutate(impute="start_conc0")
+) |>
+  select(impute, PPTESTCD, PPORRES)
+```

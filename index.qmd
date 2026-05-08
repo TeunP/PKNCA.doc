@@ -77,13 +77,19 @@ This documentation separates IV and extravascular workflows because the route de
 
 → [Post-processing: exclude, normalize, summarize](user/postprocessing.qmd)
 
+→ [Multiple-dose and steady-state](user/multiple-dose.qmd)
+
+→ [Urine excretion (ae, fe, CLr)](user/urine-excretion.qmd)
+
+→ [Superposition](user/superposition.qmd)
+
+→ [Time to steady state](user/tss.qmd)
+
+→ [Utility functions](user/utilities.qmd)
+
 ## Not yet covered
 
 | Topic | PKNCA vignette |
 |---|---|
-| Urine / fecal excretion (`ae`, `fe`, `clr`) | — |
-| Steady-state shape parameters (`deg.fluc`, `swing`, `cav`, `ptr`) | — |
-| Superposition (multiple-dose projection from single-dose data) | `vignette("v20-superposition", package="PKNCA")` |
-| Time to steady state (`pk.tss.monoexponential`) | `vignette("v22-time-to-steady-state", package="PKNCA")` |
 | Dose-aware interpolation / extrapolation | `vignette("v21-methods-for-dose-aware-interpolation-and-extrapolation", package="PKNCA")` |
 | Writing custom parameter functions | `vignette("v80-writing-parameter-functions", package="PKNCA")` |

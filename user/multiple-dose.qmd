@@ -1,0 +1,251 @@
+---
+title: "Multiple-Dose and Steady-State"
+---
+
+```{r setup, include=FALSE}
+library(PKNCA)
+library(dplyr)
+library(ggplot2)
+conflicted::conflicts_prefer(dplyr::filter, dplyr::select, .quiet = TRUE)
+```
+
+## Multiple-dose NCA concepts
+
+At steady state, the dosing interval τ (tau) is the key unit of analysis. Instead of analyzing from 0 to ∞, you analyze within one dosing interval [0, τ]. Additional parameters describe how concentrations fluctuate over the interval.
+
+| Term | Meaning |
+|---|---|
+| τ (tau) | Dosing interval (h) |
+| Cmin / Ctrough | Concentration at end of τ (= start of next dose) |
+| Cmax | Peak concentration within τ |
+| Cav | Average concentration over τ = AUCτ / τ |
+| Peak-trough ratio (PTR) | Cmax / Cmin |
+| Degree of fluctuation | (Cmax − Cmin) / Cav |
+| Swing | (Cmax − Cmin) / Cmin |
+
+---
+
+## Synthetic steady-state dataset
+
+We simulate steady-state oral theophylline to demonstrate all parameters. The key is that `start` and `end` define a single dosing interval.
+
+```{r}
+set.seed(42)
+
+# Theoph-like PK: Ka=1.5/h, ke=0.08/h, V=30L, dose=400mg
+ka <- 1.5; ke <- 0.08; V <- 30; dose <- 400; tau <- 12
+
+# One-compartment oral steady-state: C(t) = [dose/V * ka/(ka-ke)] * [e^(-ke*t)/(1-e^(-ke*tau)) - e^(-ka*t)/(1-e^(-ka*tau))]
+C_ss <- function(t, ka, ke, V, dose, tau) {
+  A <- (dose / V) * (ka / (ka - ke))
+  A * (exp(-ke * t) / (1 - exp(-ke * tau)) - exp(-ka * t) / (1 - exp(-ka * tau)))
+}
+
+timepoints <- c(0, 0.5, 1, 1.5, 2, 3, 4, 6, 8, 10, 12)
+n_subjects <- 4
+
+d_conc_ss <- expand.grid(Subject = factor(1:n_subjects), time = timepoints) |>
+  mutate(
+    # Add ~20% log-normal IIV on clearance (ke)
+    ke_i  = ke * exp(rnorm(n(), 0, 0.2)),
+    conc  = mapply(C_ss, time, ka, ke_i, V, dose, tau) + rnorm(n(), 0, 0.05),
+    conc  = pmax(conc, 0)
+  ) |>
+  select(Subject, time, conc)
+
+d_dose_ss <- data.frame(
+  Subject = factor(1:n_subjects),
+  dose    = dose,
+  time    = 0,
+  route   = "extravascular"
+)
+
+ggplot(d_conc_ss, aes(x = time, y = conc, group = Subject, colour = Subject)) +
+  geom_line() + geom_point() +
+  labs(title = "Simulated steady-state oral profiles (one dosing interval)",
+       x = "Time within interval (h)", y = "Concentration (mg/L)") +
+  theme_minimal()
+```
+
+---
+
+## Basic steady-state NCA
+
+For a single dosing interval, set `end = tau`. Parameters like `cav`, `ctrough`, `ptr`, `deg.fluc`, and `swing` all require a finite interval end.
+
+```{r}
+o_conc_ss <- PKNCAconc(d_conc_ss, conc ~ time | Subject)
+o_dose_ss <- PKNCAdose(d_dose_ss, dose ~ time | Subject, route = "extravascular")
+
+ss_intervals <- data.frame(
+  start    = 0,
+  end      = tau,
+  auclast  = TRUE,
+  cmax     = TRUE,
+  tmax     = TRUE,
+  ctrough  = TRUE,
+  cstart   = TRUE,
+  cav      = TRUE,
+  ptr      = TRUE,
+  deg.fluc = TRUE,
+  swing    = TRUE
+)
+
+o_data_ss <- PKNCAdata(o_conc_ss, o_dose_ss, intervals = ss_intervals)
+o_nca_ss  <- pk.nca(o_data_ss)
+
+as.data.frame(o_nca_ss) |>
+  filter(PPTESTCD %in% c("auclast", "cmax", "ctrough", "cstart", "cav",
+                          "ptr", "deg.fluc", "swing")) |>
+  select(Subject, PPTESTCD, PPORRES) |>
+  tidyr::pivot_wider(names_from = PPTESTCD, values_from = PPORRES) |>
+  arrange(Subject)
+```
+
+---
+
+## Parameter reference
+
+### Cstart and Ctrough
+
+`cstart` is the concentration at the **start** of the interval (time = `start`). For steady state this equals the pre-dose trough.
+`ctrough` is the concentration at the **end** of the interval (time = `end`). For steady state, `cstart` ≈ `ctrough`.
+
+```{r}
+as.data.frame(o_nca_ss) |>
+  filter(PPTESTCD %in% c("cstart", "ctrough")) |>
+  select(Subject, PPTESTCD, PPORRES) |>
+  arrange(Subject, PPTESTCD)
+```
+
+### Cav — average concentration
+
+`cav = AUCτ / τ`. Useful for computing clearance at steady state (CL/F = dose / (AUCτ)).
+
+```{r}
+as.data.frame(o_nca_ss) |>
+  filter(PPTESTCD %in% c("cav", "auclast")) |>
+  select(Subject, PPTESTCD, PPORRES) |>
+  tidyr::pivot_wider(names_from = PPTESTCD, values_from = PPORRES) |>
+  mutate(cav_check = auclast / tau) |>
+  arrange(Subject)
+```
+
+### PTR, degree of fluctuation, swing
+
+These describe how much concentrations vary within a dosing interval — important for characterizing exposure variability and clinical relevance.
+
+| Parameter | Formula |
+|---|---|
+| `ptr` | Cmax / Ctrough |
+| `deg.fluc` | (Cmax − Cmin) / Cav × 100% |
+| `swing` | (Cmax − Cmin) / Cmin × 100% |
+
+```{r}
+as.data.frame(o_nca_ss) |>
+  filter(PPTESTCD %in% c("ptr", "deg.fluc", "swing")) |>
+  select(Subject, PPTESTCD, PPORRES) |>
+  tidyr::pivot_wider(names_from = PPTESTCD, values_from = PPORRES) |>
+  arrange(Subject)
+```
+
+### Ceoi — concentration at end of infusion
+
+For IV infusions, `ceoi` is the concentration at the moment the infusion ends (= `start + duration`). For bolus or oral dosing, it equals `cmax` at the appropriate time.
+
+```{r}
+ceoi_interval <- data.frame(
+  start  = 0,
+  end    = tau,
+  ceoi   = TRUE,
+  cmax   = TRUE
+)
+
+o_nca_ceoi <- pk.nca(PKNCAdata(o_conc_ss, o_dose_ss, intervals = ceoi_interval))
+
+as.data.frame(o_nca_ceoi) |>
+  filter(PPTESTCD %in% c("ceoi", "cmax")) |>
+  select(Subject, PPTESTCD, PPORRES) |>
+  tidyr::pivot_wider(names_from = PPTESTCD, values_from = PPORRES) |>
+  arrange(Subject)
+```
+
+---
+
+## Multiple dose intervals in one dataset
+
+When data span multiple dose occasions, define one interval row per occasion per group. PKNCA applies each interval independently.
+
+```{r}
+# Two dosing intervals: 0-12h and 12-24h (simulate second interval)
+d_conc_2dose <- bind_rows(
+  d_conc_ss |> mutate(occ = 1),
+  d_conc_ss |> mutate(time = time + 12, occ = 2)
+)
+
+# Two dose events
+d_dose_2dose <- bind_rows(
+  d_dose_ss |> mutate(time = 0),
+  d_dose_ss |> mutate(time = 12)
+)
+
+o_conc_2d <- PKNCAconc(d_conc_2dose, conc ~ time | Subject)
+o_dose_2d <- PKNCAdose(d_dose_2dose, dose ~ time | Subject, route = "extravascular")
+
+# One interval per occasion
+two_dose_intervals <- data.frame(
+  start    = c(0, 12),
+  end      = c(12, 24),
+  auclast  = TRUE,
+  cmax     = TRUE,
+  ctrough  = TRUE,
+  deg.fluc = TRUE
+)
+
+o_nca_2d <- pk.nca(PKNCAdata(o_conc_2d, o_dose_2d, intervals = two_dose_intervals))
+
+as.data.frame(o_nca_2d) |>
+  filter(PPTESTCD %in% c("auclast", "cmax", "ctrough")) |>
+  select(Subject, start, end, PPTESTCD, PPORRES) |>
+  arrange(Subject, start, PPTESTCD)
+```
+
+---
+
+## Finding tau automatically: `find.tau()`
+
+When the dosing interval is not known a priori, `find.tau()` estimates it from the dosing times in a `PKNCAdose` object.
+
+```{r}
+# find.tau returns the most common dosing interval
+find.tau(o_dose_2d)
+```
+
+Use the result to construct intervals programmatically:
+
+```{r}
+tau_detected <- find.tau(o_dose_2d)
+cat("Detected tau:", tau_detected, "h\n")
+```
+
+---
+
+## Vss at multiple dose (`vss.md.*`)
+
+`vss.md.obs` and `vss.md.pred` are volume of distribution at steady state computed using the multiple-dose MRT formula. They require `auclast` (over a tau interval) and dose.
+
+```{r}
+vss_md_interval <- data.frame(
+  start      = 0,
+  end        = tau,
+  vss.md.obs = TRUE,
+  vss.md.pred = TRUE
+)
+
+o_nca_vss <- pk.nca(PKNCAdata(o_conc_ss, o_dose_ss, intervals = vss_md_interval))
+
+as.data.frame(o_nca_vss) |>
+  filter(PPTESTCD %in% c("vss.md.obs", "vss.md.pred")) |>
+  select(Subject, PPTESTCD, PPORRES) |>
+  arrange(Subject, PPTESTCD)
+```

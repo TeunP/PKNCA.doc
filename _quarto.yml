@@ -24,6 +24,11 @@ website:
           - user/auc-methods.qmd
           - user/halflife.qmd
           - user/postprocessing.qmd
+          - user/multiple-dose.qmd
+          - user/urine-excretion.qmd
+          - user/superposition.qmd
+          - user/tss.qmd
+          - user/utilities.qmd
       - section: "Developer"
         contents:
           - dev/function-deps.qmd
