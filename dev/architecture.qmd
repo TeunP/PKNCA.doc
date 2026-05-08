@@ -140,8 +140,8 @@ PKNCA.options("min.hl.points")
 old <- PKNCA.options(min.hl.points = 4)
 PKNCA.options("min.hl.points")
 
-# 4. Restore previous value
-PKNCA.options(old)
+# 4. Restore previous value — must use do.call, not PKNCA.options(old) directly
+do.call(PKNCA.options, old)
 PKNCA.options("min.hl.points")
 ```
 
