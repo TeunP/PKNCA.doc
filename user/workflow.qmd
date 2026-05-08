@@ -162,8 +162,8 @@ All options and what they control:
 | `adj.r.squared.factor` | `0.0001` | Penalty per extra point in adjusted R² (`adj.r² = r² - factor × n`) |
 | `min.span.ratio` | `2` | Minimum ratio of time span to half-life; rejects regressions over too short a window |
 | `allow.tmax.in.half.life` | `FALSE` | Allow Tmax timepoint in λz regression |
-| `hl_method` | `"log-linear"` | Regression method: `"log-linear"` (OLS on log scale) or `"tobit"` (for data with BLQ) |
-| `tobit_n_points_penalty` | `0` | Extra penalty per point in tobit method (0 = no penalty) |
+| `hl_method` | `"log-linear"` | `"log-linear"` or `"tobit"` — **not in CRAN 0.12.1, requires GitHub version** |
+| `tobit_n_points_penalty` | `0` | Extra penalty per point in tobit — **GitHub version only** |
 
 **AUCinf extrapolation**
 

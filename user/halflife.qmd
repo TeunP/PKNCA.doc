@@ -201,41 +201,19 @@ as.data.frame(o_nca_incl) |>
 
 ## Tobit regression for BLQ-heavy data
 
-When many terminal-phase points are BLQ (below the limit of quantification), standard log-linear regression cannot use them. The **tobit method** treats BLQ observations as left-censored data and includes them in the likelihood.
+> **Note:** The tobit method (`hl_method = "tobit"`) is not available in PKNCA 0.12.1 (current CRAN). It was added in a later development version. This documentation is based on CRAN 0.12.1 — upgrade to the GitHub version to use it.
 
-```{r}
-# Switch to tobit half-life method
-o_data_tobit <- PKNCAdata(o_conc, o_dose, intervals = hl_interval,
-                           options = list(hl_method = "tobit"))
-o_nca_tobit  <- pk.nca(o_data_tobit)
+When available, the tobit method treats BLQ observations as left-censored data and includes them in the likelihood, rather than dropping them. It is most valuable when > 20–30% of terminal-phase observations are BLQ.
 
-bind_rows(
-  as.data.frame(o_nca) |>
-    filter(PPTESTCD %in% c("half.life", "lambda.z")) |>
-    mutate(method = "log-linear"),
-  as.data.frame(o_nca_tobit) |>
-    filter(PPTESTCD %in% c("half.life", "lambda.z")) |>
-    mutate(method = "tobit")
-) |>
-  select(subject, method, PPTESTCD, PPORRES) |>
-  tidyr::pivot_wider(names_from = PPTESTCD, values_from = PPORRES) |>
-  arrange(subject, method)
-```
+Options (once available):
 
-Additional tobit controls:
+| Option | Default | Effect |
+|---|---|---|
+| `hl_method` | `"log-linear"` | `"log-linear"` or `"tobit"` |
+| `tobit_n_points_penalty` | `0` | Penalty per extra point in tobit (0 = no penalty) |
+| `tobit_optim_control` | `list()` | Control list passed to `stats::optim()` |
 
-```{r}
-# Penalise longer point windows in tobit (0 = no penalty, default)
-o_data_tobit2 <- PKNCAdata(o_conc, o_dose, intervals = hl_interval,
-  options = list(
-    hl_method             = "tobit",
-    tobit_n_points_penalty = 0.1,           # penalise extra points
-    tobit_optim_control   = list(maxit = 500)  # more optimiser iterations
-  )
-)
-```
-
-> The tobit method is most valuable when > 20–30% of terminal-phase observations are BLQ. For data with few BLQs, `"log-linear"` is preferred. See `vignette("v06-half-life-calculation-tobit", package = "PKNCA")` for a detailed comparison.
+See `vignette("v06-half-life-calculation-tobit", package = "PKNCA")` for a detailed comparison.
 
 ---
 
