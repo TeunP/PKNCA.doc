@@ -116,12 +116,15 @@ knitr::kable(dep_table, col.names = c("Parameter", "Depends on"))
 When you call `pk.nca()`, PKNCA calls `sort.interval.cols()` internally to produce a topologically sorted execution order — parameters with no dependencies run first, then those that depend on already-computed values.
 
 ```{r sort-order}
-# Show the resolved execution order
-sorted <- PKNCA:::sort.interval.cols()
+# Reconstruct execution order: parameters with no dependencies first,
+# then those whose dependencies are already satisfied.
+cols <- get.interval.cols()
+dep_counts <- sapply(cols, function(x) length(x$depends))
 data.frame(
-  order     = seq_along(sorted),
-  parameter = names(sorted)
+  parameter  = names(dep_counts),
+  n_depends  = unname(dep_counts)
 ) |>
+  arrange(n_depends, parameter) |>
   head(30) |>
-  knitr::kable(caption = "First 30 parameters in resolved execution order")
+  knitr::kable(caption = "First 30 parameters ordered by dependency depth (0 = no dependencies)")
 ```
