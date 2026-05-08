@@ -433,7 +433,7 @@ PKNCA.set.summary(
   "tmax",
   description = "median [min, max]",
   point  = median,
-  spread = function(x) sprintf("[%.2f, %.2f]", min(x), max(x))
+  spread = function(x) c(min(x), max(x))  # must return numeric; PKNCA formats the string
 )
 
 summary(o_nca)

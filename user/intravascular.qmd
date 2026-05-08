@@ -361,9 +361,9 @@ Customize the summary function (e.g., arithmetic mean ± SD for Tmax):
 ```{r}
 PKNCA.set.summary(
   "tmax",
-  description = "median [range]",
-  point = median,
-  spread = function(x) paste0("[", min(x), ", ", max(x), "]")
+  description = "median [min, max]",
+  point  = median,
+  spread = function(x) c(min(x), max(x))  # must return numeric; PKNCA formats the string
 )
 
 summary(o_nca)
