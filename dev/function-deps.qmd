@@ -117,7 +117,7 @@ When you call `pk.nca()`, PKNCA calls `sort.interval.cols()` internally to produ
 
 ```{r sort-order}
 # Show the resolved execution order
-sorted <- PKNCA:::sort.interval.cols(cols)
+sorted <- PKNCA:::sort.interval.cols()
 data.frame(
   order     = seq_along(sorted),
   parameter = names(sorted)
