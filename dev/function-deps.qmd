@@ -1,0 +1,126 @@
+---
+title: "NCA Parameter Dependencies"
+---
+
+```{r setup, include=FALSE}
+library(PKNCA)
+library(visNetwork)
+library(dplyr)
+```
+
+## Overview
+
+PKNCA resolves parameter dependencies automatically. When you request `aucinf.obs`, PKNCA internally ensures `lambda.z` is computed first because `aucinf.obs` depends on it. This graph makes those dependencies explicit.
+
+## How dependencies are defined
+
+Every NCA parameter is registered via `add.interval.col()` with a `depends` vector listing the parameters that must be computed before it. The full registry is accessible via `get.interval.cols()`.
+
+## Interactive dependency graph
+
+```{r build-graph}
+# Get all registered interval columns (parameters)
+cols <- get.interval.cols()
+
+# Build edge list from the 'depends' field
+edges <- lapply(names(cols), function(param) {
+  deps <- cols[[param]]$depends
+  if (length(deps) == 0) return(NULL)
+  data.frame(from = deps, to = param, stringsAsFactors = FALSE)
+}) |>
+  bind_rows()
+
+# All unique nodes
+all_nodes <- unique(c(edges$from, edges$to, names(cols)))
+
+# Assign category for colouring
+categorise <- function(name) {
+  case_when(
+    grepl("^auc",       name) ~ "AUC",
+    grepl("^lambda|half\\.life|r\\.squared", name) ~ "Half-life / λz",
+    grepl("^cl\\.|^vz\\.|^vss", name) ~ "CL / Volume",
+    grepl("^mrt",       name) ~ "MRT",
+    grepl("^c(max|min|0|last|first)|^t(max|min|last|first|lag)|clast", name) ~ "Cmax / Tmax",
+    grepl("^f$|bioavail|^ae|^fe|^clr|^vd",  name) ~ "Bioavailability / Renal",
+    grepl("^tss",       name) ~ "Steady-state",
+    TRUE ~ "Other"
+  )
+}
+
+category_colours <- c(
+  "AUC"                    = "#4e79a7",
+  "Half-life / λz"         = "#f28e2b",
+  "CL / Volume"            = "#e15759",
+  "MRT"                    = "#76b7b2",
+  "Cmax / Tmax"            = "#59a14f",
+  "Bioavailability / Renal"= "#edc948",
+  "Steady-state"           = "#b07aa1",
+  "Other"                  = "#aaaaaa"
+)
+
+nodes <- data.frame(
+  id    = all_nodes,
+  label = all_nodes,
+  group = categorise(all_nodes),
+  stringsAsFactors = FALSE
+) |>
+  mutate(color = category_colours[group])
+
+visNetwork(nodes, edges,
+           width = "100%", height = "700px",
+           main = "PKNCA NCA Parameter Dependencies") |>
+  visNodes(shape = "dot", size = 14,
+           font = list(size = 12),
+           borderWidth = 2) |>
+  visEdges(arrows = "to",
+           color  = list(color = "#aaaaaa", highlight = "#333333"),
+           smooth = list(type = "cubicBezier")) |>
+  visOptions(
+    highlightNearest = list(enabled = TRUE, degree = 2, hover = TRUE),
+    nodesIdSelection = list(enabled = TRUE, main = "Select parameter")
+  ) |>
+  visLegend(useGroups = TRUE, position = "right") |>
+  visPhysics(stabilization = list(iterations = 200)) |>
+  visLayout(randomSeed = 42)
+```
+
+**How to use this graph:**
+
+- Click a parameter node to highlight its immediate dependencies and dependents
+- The "Select parameter" dropdown jumps to a specific node
+- Drag nodes to rearrange; scroll to zoom
+- Colours indicate parameter family (see legend)
+
+## Dependency table
+
+For a text-based reference:
+
+```{r dep-table}
+dep_table <- lapply(names(cols), function(param) {
+  data.frame(
+    parameter = param,
+    depends_on = if (length(cols[[param]]$depends) == 0) "(none)"
+                 else paste(cols[[param]]$depends, collapse = ", "),
+    stringsAsFactors = FALSE
+  )
+}) |>
+  bind_rows() |>
+  arrange(parameter)
+
+knitr::kable(dep_table, col.names = c("Parameter", "Depends on"))
+```
+
+## Dependency resolution
+
+When you call `pk.nca()`, PKNCA calls `sort.interval.cols()` internally to produce a topologically sorted execution order — parameters with no dependencies run first, then those that depend on already-computed values.
+
+```{r sort-order}
+# Show the resolved execution order
+sorted <- PKNCA:::sort.interval.cols(cols)
+data.frame(
+  order     = seq_along(sorted),
+  parameter = names(sorted)
+) |>
+  head(30) |>
+  knitr::kable(caption = "First 30 parameters in resolved execution order")
+```

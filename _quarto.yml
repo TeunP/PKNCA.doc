@@ -1,0 +1,40 @@
+project:
+  type: website
+  output-dir: _site
+
+website:
+  title: "PKNCA Documentation"
+  description: "User and developer reference for the PKNCA R package"
+  navbar:
+    left:
+      - href: index.qmd
+        text: Overview
+    right:
+      - icon: github
+        href: https://github.com/humanpred/pknca
+  sidebar:
+    style: docked
+    contents:
+      - section: "User Guide"
+        contents:
+          - user/workflow.qmd
+          - user/intravascular.qmd
+          - user/extravascular.qmd
+      - section: "Developer"
+        contents:
+          - dev/function-deps.qmd
+          - dev/architecture.qmd
+
+format:
+  html:
+    theme: cosmo
+    toc: true
+    toc-depth: 3
+    code-copy: true
+    code-tools: true
+    highlight-style: github
+
+execute:
+  freeze: false
+  warning: true
+  error: false

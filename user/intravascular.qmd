@@ -1,0 +1,391 @@
+---
+title: "Intravascular (IV) Examples"
+---
+
+```{r setup, include=FALSE}
+library(PKNCA)
+library(dplyr)
+library(ggplot2)
+```
+
+## The IV dataset: Indomethacin
+
+We use `datasets::Indometh` — IV bolus indomethacin in 6 subjects, sampled over 8 hours.
+
+```{r}
+head(Indometh)
+str(Indometh)
+```
+
+Columns: `Subject` (factor, 6 levels), `time` (h), `conc` (mcg/mL).
+
+We add dose information. The standard IV bolus dose for this study was 25 mg.
+
+```{r}
+d_conc <- as.data.frame(Indometh)
+
+d_dose <- data.frame(
+  Subject = unique(d_conc$Subject),
+  dose    = 25,   # mg
+  time    = 0,
+  route   = "intravascular"
+)
+
+# Quick look at concentration profiles
+ggplot(d_conc, aes(x = time, y = conc, group = Subject, colour = Subject)) +
+  geom_line() + geom_point() +
+  scale_y_log10() +
+  labs(title = "Indomethacin IV — log-linear concentration profiles",
+       x = "Time (h)", y = "Concentration (mcg/mL)") +
+  theme_minimal()
+```
+
+The log-linear profiles confirm monoexponential decline — well suited for IV NCA.
+
+---
+
+## Basic IV analysis
+
+```{r}
+o_conc <- PKNCAconc(d_conc, conc ~ time | Subject)
+
+o_dose <- PKNCAdose(d_dose, dose ~ time | Subject, route = "intravascular")
+
+# Indometh: no sample at t = 0 (first sample is at 0.25h).
+# Use impute = "start_conc0" to add conc = 0 at t = 0 so the interval can start at 0.
+# This slightly underestimates AUClast vs. true C0 back-extrapolation (see C0 section below).
+first_t <- 0  # interval starts at 0 with imputed C0 = 0
+
+# Request the core IV parameters
+iv_intervals <- data.frame(
+  start       = first_t,
+  end         = Inf,
+  auclast     = TRUE,
+  aucinf.obs  = TRUE,
+  half.life   = TRUE,
+  cmax        = TRUE,
+  tmax        = TRUE,
+  lambda.z    = TRUE,
+  cl.obs      = TRUE,
+  vz.obs      = TRUE,
+  mrt.iv.last = TRUE
+)
+
+o_data <- PKNCAdata(o_conc, o_dose, intervals = iv_intervals, impute = "start_conc0")
+o_nca  <- pk.nca(o_data)
+
+as.data.frame(o_nca) |>
+  select(Subject, PPTESTCD, PPORRESU, PPORRES) |>
+  arrange(Subject, PPTESTCD)
+```
+
+---
+
+## Parameter reference: what each one means
+
+### Cmax and Tmax
+
+For IV bolus, Cmax is the first measured concentration (no absorption phase).
+Tmax is the time of that first sample.
+
+```{r}
+as.data.frame(o_nca) |>
+  filter(PPTESTCD %in% c("cmax", "tmax")) |>
+  select(Subject, PPTESTCD, PPORRES, PPORRESU)
+```
+
+### C0 — extrapolated initial concentration
+
+For IV bolus, the true concentration at time 0 is not directly measured (the first sample is taken minutes later). PKNCA extrapolates C0 by back-extrapolating the log-linear terminal phase.
+
+```{r}
+iv_with_c0 <- data.frame(
+  start    = first_t,
+  end      = Inf,
+  c0       = TRUE,
+  auclast  = TRUE,
+  aucinf.obs = TRUE
+)
+
+o_data_c0 <- PKNCAdata(o_conc, o_dose, intervals = iv_with_c0, impute = "start_conc0")
+o_nca_c0  <- pk.nca(o_data_c0)
+
+as.data.frame(o_nca_c0) |>
+  filter(PPTESTCD %in% c("c0", "cmax", "auclast", "aucinf.obs")) |>
+  select(Subject, PPTESTCD, PPORRES, PPORRESU) |>
+  arrange(Subject, PPTESTCD)
+```
+
+> **Note:** C0 > Cmax is expected for IV bolus — Cmax is the first measured point, C0 is extrapolated back to time 0.
+
+### AUC variants
+
+| Parameter | Meaning |
+|---|---|
+| `auclast` | AUC from 0 to last measurable concentration (trapezoidal) |
+| `aucinf.obs` | AUC extrapolated to ∞, using observed Clast |
+| `aucinf.pred` | AUC extrapolated to ∞, using predicted Clast from λz fit |
+| `aucpext.obs` | % of AUCinf that is extrapolated (quality check) |
+
+```{r}
+auc_params <- data.frame(
+  start       = first_t,
+  end         = Inf,
+  auclast     = TRUE,
+  aucinf.obs  = TRUE,
+  aucinf.pred = TRUE,
+  aucpext.obs = TRUE
+)
+
+o_data_auc <- PKNCAdata(o_conc, o_dose, intervals = auc_params, impute = "start_conc0")
+o_nca_auc  <- pk.nca(o_data_auc)
+
+as.data.frame(o_nca_auc) |>
+  filter(PPTESTCD %in% c("auclast", "aucinf.obs", "aucinf.pred", "aucpext.obs")) |>
+  select(Subject, PPTESTCD, PPORRES, PPORRESU) |>
+  arrange(Subject, PPTESTCD)
+```
+
+> **Quality check:** `aucpext.obs` > 20% (the default `max.aucinf.pext` threshold) means too much of the AUC is extrapolated — the study may not have sampled long enough.
+
+### Half-life and λz
+
+λz (lambda.z) is the terminal elimination rate constant estimated from log-linear regression of the terminal phase. Half-life = ln(2) / λz.
+
+```{r}
+hl_params <- data.frame(
+  start        = first_t,
+  end          = Inf,
+  lambda.z     = TRUE,
+  half.life    = TRUE,
+  r.squared    = TRUE,
+  lambda.z.n.points = TRUE
+)
+
+o_data_hl <- PKNCAdata(o_conc, o_dose, intervals = hl_params, impute = "start_conc0")
+o_nca_hl  <- pk.nca(o_data_hl)
+
+as.data.frame(o_nca_hl) |>
+  filter(PPTESTCD %in% c("lambda.z", "half.life", "r.squared", "lambda.z.n.points")) |>
+  select(Subject, PPTESTCD, PPORRES) |>
+  arrange(Subject, PPTESTCD)
+```
+
+**Controlling half-life quality:**
+
+```{r}
+# Stricter: require at least 4 points and R² ≥ 0.95
+o_data_strict <- PKNCAdata(
+  o_conc, o_dose,
+  intervals = hl_params,
+  impute = "start_conc0",
+  options = list(
+    min.hl.points    = 4,
+    min.hl.r.squared = 0.95
+  )
+)
+o_nca_strict <- pk.nca(o_data_strict)
+
+as.data.frame(o_nca_strict) |>
+  filter(PPTESTCD %in% c("half.life", "r.squared", "lambda.z.n.points")) |>
+  select(Subject, PPTESTCD, PPORRES) |>
+  arrange(Subject, PPTESTCD)
+```
+
+**Excluding specific points from λz:**
+
+Use `exclude_half.life` column in your concentration data to mark points that should not be included in the terminal regression:
+
+```{r}
+d_conc_excl <- d_conc |>
+  mutate(excl_hl = ifelse(Subject == "1" & time < 0.5, TRUE, NA))
+
+o_conc_excl <- PKNCAconc(
+  d_conc_excl,
+  conc ~ time | Subject,
+  exclude_half.life = "excl_hl"
+)
+```
+
+### Clearance and Volume
+
+For IV, apparent clearance and volume can be calculated directly (no bioavailability factor needed).
+
+| Parameter | Formula | Meaning |
+|---|---|---|
+| `cl.obs` | Dose / AUCinf.obs | Total body clearance (L/h) |
+| `cl.pred` | Dose / AUCinf.pred | CL using predicted Clast |
+| `vz.obs` | CL / λz | Volume of distribution (L) |
+| `vz.pred` | CL.pred / λz | Vz using predicted Clast |
+| `vss.obs` | CL × MRT | Volume at steady state |
+
+```{r}
+cl_params <- data.frame(
+  start    = first_t,
+  end      = Inf,
+  cl.obs   = TRUE,
+  cl.pred  = TRUE,
+  vz.obs   = TRUE,
+  vz.pred  = TRUE
+)
+
+o_data_cl <- PKNCAdata(o_conc, o_dose, intervals = cl_params, impute = "start_conc0")
+o_nca_cl  <- pk.nca(o_data_cl)
+
+as.data.frame(o_nca_cl) |>
+  filter(PPTESTCD %in% c("cl.obs", "cl.pred", "vz.obs", "vz.pred")) |>
+  select(Subject, PPTESTCD, PPORRES, PPORRESU) |>
+  arrange(Subject, PPTESTCD)
+```
+
+### Mean Residence Time (MRT)
+
+MRT quantifies the average time a drug molecule spends in the body.
+
+For IV, the AUMC (area under the first moment curve) method gives:
+
+```{r}
+mrt_params <- data.frame(
+  start       = first_t,
+  end         = Inf,
+  mrt.iv.last = TRUE,
+  mrt.iv.inf.obs = TRUE
+)
+
+o_data_mrt <- PKNCAdata(o_conc, o_dose, intervals = mrt_params, impute = "start_conc0")
+o_nca_mrt  <- pk.nca(o_data_mrt)
+
+as.data.frame(o_nca_mrt) |>
+  filter(grepl("^mrt", PPTESTCD)) |>
+  select(Subject, PPTESTCD, PPORRES, PPORRESU)
+```
+
+---
+
+## IV infusion (non-bolus)
+
+For IV infusions, supply `duration` (infusion duration in time units) or `rate` in `PKNCAdose`:
+
+```{r}
+# Simulate: same dose but given as 30-minute infusion
+d_dose_inf <- d_dose |>
+  mutate(duration = 0.5)  # 0.5 hours = 30 min
+
+o_dose_inf <- PKNCAdose(
+  d_dose_inf,
+  dose ~ time | Subject,
+  route    = "intravascular",
+  duration = "duration"   # column name
+)
+```
+
+> For infusions, PKNCA adjusts the MRT calculation: MRT_infusion = MRT_bolus + Duration/2.
+
+---
+
+## AUC over a specific interval
+
+For steady-state or partial AUC windows:
+
+```{r}
+# AUC from first sample to 4 hours
+partial_auc <- data.frame(
+  start   = first_t,
+  end     = 4,
+  auclast = TRUE,
+  cmax    = TRUE
+)
+
+o_data_partial <- PKNCAdata(o_conc, o_dose, intervals = partial_auc, impute = "start_conc0")
+o_nca_partial  <- pk.nca(o_data_partial)
+
+as.data.frame(o_nca_partial) |>
+  select(Subject, PPTESTCD, PPORRES, PPORRESU) |>
+  arrange(Subject)
+```
+
+---
+
+## Units
+
+Assign units to get automatic unit propagation through derived parameters:
+
+```{r}
+units_table <- pknca_units_table(
+  concu  = "mcg/mL",
+  timeu  = "h",
+  doseu  = "mg",
+  amountu = "mg"
+)
+
+o_conc_u <- PKNCAconc(d_conc, conc ~ time | Subject, concu = "mcg/mL", timeu = "h")
+o_dose_u <- PKNCAdose(d_dose, dose ~ time | Subject, route = "intravascular",
+                      doseu = "mg", timeu = "h")
+o_data_u <- PKNCAdata(o_conc_u, o_dose_u, intervals = iv_intervals, units = units_table,
+                     impute = "start_conc0")
+o_nca_u  <- pk.nca(o_data_u)
+
+as.data.frame(o_nca_u) |>
+  filter(PPTESTCD %in% c("auclast", "cl.obs", "vz.obs")) |>
+  select(Subject, PPTESTCD, PPORRES, PPORRESU) |>
+  arrange(Subject, PPTESTCD)
+```
+
+---
+
+## Excluding data points
+
+Mark individual observations to exclude from calculations (e.g., suspected sampling errors):
+
+```{r}
+d_conc_with_excl <- d_conc |>
+  mutate(excl = ifelse(Subject == "2" & time == 2, "suspected contamination", NA_character_))
+
+o_conc_excl <- PKNCAconc(d_conc_with_excl, conc ~ time | Subject, exclude = "excl")
+```
+
+Excluded points are tracked in the results and appear in `as.data.frame()` output.
+
+---
+
+## Summary with custom statistics
+
+```{r}
+# Default summary uses geometric mean ± CV% for most parameters
+summary(o_nca)
+```
+
+Customize the summary function (e.g., arithmetic mean ± SD for Tmax):
+
+```{r}
+PKNCA.set.summary(
+  "tmax",
+  description = "median [range]",
+  point = median,
+  spread = function(x) paste0("[", min(x), ", ", max(x), "]")
+)
+
+summary(o_nca)
+```
+
+---
+
+## Full parameter list for IV
+
+Below are all IV-relevant parameters you can request in an interval:
+
+```{r}
+# Show all available interval columns
+interval_cols <- get.interval.cols()
+iv_relevant <- c(
+  "auclast", "aucinf.obs", "aucinf.pred", "aucpext.obs", "aucpext.pred",
+  "aumc.last", "aumc.inf.obs",
+  "c0", "cmax", "tmax", "tlast", "clast.obs",
+  "half.life", "lambda.z", "lambda.z.n.points", "r.squared", "adj.r.squared",
+  "cl.obs", "cl.pred", "vz.obs", "vz.pred",
+  "mrt.iv.last", "mrt.iv.inf.obs", "mrt.iv.inf.pred"
+)
+
+# Which of these are registered in PKNCA?
+names(interval_cols)[names(interval_cols) %in% iv_relevant]
+```

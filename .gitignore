@@ -1,0 +1,14 @@
+# Quarto rendered output — large, reproducible from source
+_site/
+_freeze/
+.quarto/
+
+# R session artefacts
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj
+
+# OS
+.DS_Store
+Thumbs.db

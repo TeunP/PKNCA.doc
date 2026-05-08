@@ -1,0 +1,197 @@
+---
+title: "Workflow Overview"
+---
+
+```{r setup, include=FALSE}
+library(PKNCA)
+library(dplyr)
+library(ggplot2)
+```
+
+## The Five-Step Workflow
+
+Every PKNCA analysis follows the same five steps regardless of route or complexity.
+
+```{mermaid}
+flowchart TD
+    S1["① Prepare data\nconcentration data.frame\ndose data.frame"] --> S2
+    S2["② PKNCAconc()\ndefine conc column, time column,\ngrouping variables, route-specific args"] --> S3
+    S3["③ PKNCAdose()\ndefine dose, time, route\n(intravascular / extravascular)"] --> S4
+    S4["④ PKNCAdata()\ncombine conc + dose\nspecify intervals + imputation + units"] --> S5
+    S5["⑤ pk.nca()\nrun all calculations"] --> S6
+    S6["PKNCAresults\nsummary() / as.data.frame()"]
+
+    style S1 fill:#f0f4ff
+    style S6 fill:#e8f5e9
+```
+
+## Step-by-step: minimal example
+
+Below is the complete workflow with the built-in `Theoph` dataset (oral theophylline, 12 subjects).
+
+### Step 1 — Prepare your data
+
+PKNCA expects two separate data frames: one for concentrations and one for doses. Both must be in **long format** (one row per observation).
+
+```{r}
+# Built-in oral theophylline dataset
+head(Theoph)
+```
+
+The columns are: `Subject`, `Wt` (weight, kg), `Dose` (mg/kg), `Time` (h), `conc` (mg/L).
+
+```{r}
+# Concentration data: keep what we need
+d_conc <- Theoph |>
+  select(Subject, Time, conc)
+
+# Dose data: one row per subject (single dose at time 0)
+d_dose <- Theoph |>
+  group_by(Subject) |>
+  summarise(Dose = Dose[1] * Wt[1], .groups = "drop") |>  # convert mg/kg to mg
+  mutate(Time = 0)
+
+head(d_dose)
+```
+
+### Step 2 — PKNCAconc
+
+`PKNCAconc` tells PKNCA the structure of your concentration data via a formula:
+`concentration ~ time | group1 / group2 / ...`
+
+```{r}
+o_conc <- PKNCAconc(d_conc, conc ~ Time | Subject)
+print(o_conc)
+```
+
+### Step 3 — PKNCAdose
+
+`PKNCAdose` describes the dosing. The `route` argument is critical — it determines which parameters are estimable.
+
+```{r}
+o_dose <- PKNCAdose(d_dose, Dose ~ Time | Subject, route = "extravascular")
+print(o_dose)
+```
+
+### Step 4 — PKNCAdata
+
+`PKNCAdata` combines concentration and dose objects. If you don't specify `intervals`, PKNCA automatically determines them from the dosing times.
+
+```{r}
+o_data <- PKNCAdata(o_conc, o_dose)
+```
+
+You can inspect the auto-generated intervals:
+
+```{r}
+o_data$intervals |> head()
+```
+
+### Step 5 — pk.nca
+
+Run all calculations:
+
+```{r}
+o_nca <- pk.nca(o_data)
+```
+
+### Results
+
+```{r}
+# Tidy data frame of all computed parameters
+as.data.frame(o_nca) |> head(20)
+```
+
+```{r}
+# Summary table (geometric mean ± CV% by default for most parameters)
+summary(o_nca)
+```
+
+---
+
+## Specifying intervals manually
+
+Auto-interval detection works for simple designs. For complex studies (multiple doses, custom windows), define intervals yourself.
+
+An **interval** is a row in a data frame with:
+- `start`, `end`: time boundaries
+- One column per parameter set to `TRUE` to request that parameter
+
+```{r}
+# Request specific parameters over a specific window
+my_intervals <- data.frame(
+  start  = 0,
+  end    = Inf,
+  auclast  = TRUE,
+  aucinf.obs = TRUE,
+  cmax   = TRUE,
+  tmax   = TRUE,
+  half.life = TRUE
+)
+
+o_data2 <- PKNCAdata(o_conc, o_dose, intervals = my_intervals)
+o_nca2  <- pk.nca(o_data2)
+as.data.frame(o_nca2)
+```
+
+---
+
+## Controlling calculations with PKNCA.options()
+
+`PKNCA.options()` is the global settings registry. Call with no arguments to see all current settings.
+
+```{r}
+PKNCA.options()
+```
+
+Key options and what they control:
+
+| Option | Default | Effect |
+|---|---|---|
+| `auc.method` | `"lin up/log down"` | AUC integration method |
+| `min.hl.points` | `3` | Minimum points required for half-life fit |
+| `min.hl.r.squared` | `0.9` | Minimum adjusted R² for half-life acceptance |
+| `max.aucinf.pext` | `20` | Maximum % extrapolation allowed for AUCinf |
+| `conc.na` | `"drop"` | How to handle NA concentrations |
+| `first.tmax` | `TRUE` | Use first vs. last Tmax when tied |
+| `allow.tmax.in.half.life` | `FALSE` | Allow Tmax point in λz regression |
+
+Override for a single analysis by passing `options` to `PKNCAdata()`:
+
+```{r}
+o_data_strict <- PKNCAdata(
+  o_conc, o_dose,
+  options = list(
+    min.hl.points  = 4,     # require at least 4 points for half-life
+    min.hl.r.squared = 0.95 # stricter R² threshold
+  )
+)
+```
+
+---
+
+## Extracting and plotting results
+
+```{r}
+results_df <- as.data.frame(o_nca)
+
+# Filter to one parameter
+auclast_df <- results_df |>
+  filter(PPTESTCD == "auclast")
+
+ggplot(auclast_df, aes(x = Subject, y = PPORRES)) +
+  geom_col(fill = "steelblue") +
+  labs(title = "AUClast by Subject", x = "Subject", y = "AUClast (h·mg/L)") +
+  theme_minimal()
+```
+
+---
+
+## Updating results
+
+Use `update()` to recalculate with modified settings without rebuilding from scratch:
+
+```{r}
+# Change AUC method and recalculate
+o_nca_updated <- update(o_nca, data = update(o_data, options = list(auc.method = "linear")))
+```

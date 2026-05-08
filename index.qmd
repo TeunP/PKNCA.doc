@@ -1,0 +1,70 @@
+---
+title: "PKNCA Documentation"
+---
+
+## What is NCA?
+
+**Noncompartmental analysis (NCA)** is the standard method for characterizing drug exposure from concentration-time data. Unlike compartmental modeling, NCA makes no assumptions about the underlying PK model — it derives parameters directly from the observed data using numerical integration.
+
+NCA is used to answer questions like:
+
+- How much drug did the body absorb? → **AUC** (area under the concentration-time curve)
+- How fast was drug eliminated? → **half-life**, **λz**
+- How high did concentrations get? → **Cmax**
+- How quickly was drug cleared? → **CL**, **Vz**
+
+## What is PKNCA?
+
+[PKNCA](https://github.com/humanpred/pknca) is an R package (CRAN v0.12.1) for automated NCA calculation. It is validated against Phoenix WinNonlin and Pumas.
+
+**Key design principles:**
+
+- Only gives correct answers to the specific questions being asked
+- Automates interval selection and parameter dependency resolution
+- Supports flexible grouping (subject, treatment, analyte, study)
+- Handles IV and extravascular (oral, SC, IM) routes separately
+- Built-in unit support, data imputation, and exclusion tracking
+
+## Core Workflow
+
+```{mermaid}
+flowchart LR
+    A[Concentration\ndata frame] --> B[PKNCAconc]
+    C[Dose\ndata frame] --> D[PKNCAdose]
+    B --> E[PKNCAdata]
+    D --> E
+    F[Intervals\nspecification] -.->|optional override| E
+    E --> G[pk.nca]
+    G --> H[PKNCAresults]
+    H --> I[summary]
+    H --> J[as.data.frame]
+```
+
+The four objects map naturally to the questions an analyst asks:
+
+| Object | Purpose |
+|---|---|
+| `PKNCAconc` | Where is my concentration data, and how is it structured? |
+| `PKNCAdose` | What was the dose, when, and by what route? |
+| `PKNCAdata` | What parameters do I want, over which intervals? |
+| `PKNCAresults` | Computed NCA parameters with units and metadata |
+
+## Route-specific guidance
+
+This documentation separates IV and extravascular workflows because the route determines which parameters are meaningful:
+
+| Parameter | IV | Extravascular |
+|---|---|---|
+| C0 (extrapolated) | ✓ | — |
+| Cmax | ✓ | ✓ |
+| Tmax | ✓ | ✓ |
+| AUClast / AUCinf | ✓ | ✓ |
+| Half-life (λz) | ✓ | ✓ |
+| CL (clearance) | ✓ | — (apparent: CL/F) |
+| Vz (volume) | ✓ | — (apparent: Vz/F) |
+| Bioavailability (F) | reference | ✓ |
+| Ka (abs. rate) | — | ✓ (indirect) |
+
+→ [Intravascular (IV) examples](user/intravascular.qmd)
+
+→ [Extravascular (oral/SC) examples](user/extravascular.qmd)

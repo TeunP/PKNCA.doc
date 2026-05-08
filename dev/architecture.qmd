@@ -1,0 +1,171 @@
+---
+title: "Architecture Overview"
+---
+
+```{r setup, include=FALSE}
+library(PKNCA)
+```
+
+## Class hierarchy
+
+PKNCA uses four S3 classes that form a strict pipeline. Each wraps the previous one:
+
+```{mermaid}
+classDiagram
+    class PKNCAconc {
+        data: data.frame
+        formula: conc~time|groups
+        subject: column name
+        sparse: logical
+        units: concu/timeu
+        exclude / exclude_half.life
+    }
+    class PKNCAdose {
+        data: data.frame
+        formula: dose~time|groups
+        route: intravas./extravas.
+        duration / rate
+        units: doseu/timeu
+    }
+    class PKNCAdata {
+        conc: PKNCAconc
+        dose: PKNCAdose
+        intervals: data.frame
+        impute: method string
+        units: pknca_units_table()
+        options: named list
+    }
+    class PKNCAresults {
+        result: data.frame
+        data: PKNCAdata
+    }
+
+    PKNCAconc --> PKNCAdata
+    PKNCAdose --> PKNCAdata
+    PKNCAdata --> PKNCAresults
+```
+
+## The interval column system
+
+The parameter registry is the core extensibility mechanism. Every NCA parameter is registered as an **interval column** via `add.interval.col()`.
+
+```{r}
+# Inspect registration for auclast
+cols <- get.interval.cols()
+str(cols[["auclast"]])
+```
+
+Each entry contains:
+
+| Field | Purpose |
+|---|---|
+| `FUN` | The R function that computes this parameter |
+| `depends` | Character vector of parameters that must be computed first |
+| `desc` | Human-readable description |
+| `formalsmap` | Maps function arguments to interval/group/options data |
+| `value.ok` | Validation function for the computed result |
+| `sparse` | Whether this parameter works for sparse PK |
+
+## formalsmap
+
+`formalsmap` is how PKNCA passes the right data to each parameter function. Arguments can be sourced from four places:
+
+| Source type | Example | What it provides |
+|---|---|---|
+| Interval column | `conc`, `time` | Concentrations/times for the current interval |
+| Other parameters | `auclast = "auclast"` | A previously computed NCA result |
+| Interval bounds | `start`, `end` | The interval start/end times |
+| Options | `auc.method` | Value from `PKNCA.options()` |
+
+## Writing a custom parameter
+
+To add a new NCA parameter:
+
+```{r}
+# Example: compute the "exposure ratio" — AUCinf / AUClast
+pk.calc.exposure.ratio <- function(aucinf.obs, auclast) {
+  aucinf.obs / auclast
+}
+
+add.interval.col(
+  name     = "exposure.ratio",
+  FUN      = pk.calc.exposure.ratio,
+  unit_type = "unitless",
+  pretty_name = "Exposure Ratio (AUCinf/AUClast)",
+  desc     = "Ratio of AUCinf to AUClast; >1 indicates extrapolation",
+  depends  = c("aucinf.obs", "auclast"),
+  formalsmap = list(aucinf.obs = "aucinf.obs", auclast = "auclast")
+)
+
+# Now it can be requested in intervals
+d_conc <- as.data.frame(Theoph) |> rename(time = Time, subject = Subject)
+d_dose <- Theoph |> as.data.frame() |>
+  dplyr::group_by(Subject) |>
+  dplyr::summarise(dose = Dose[1] * Wt[1], .groups = "drop") |>
+  dplyr::rename(subject = Subject) |>
+  dplyr::mutate(time = 0)
+
+o_conc <- PKNCAconc(d_conc, conc ~ time | subject)
+o_dose <- PKNCAdose(d_dose, dose ~ time | subject, route = "extravascular")
+
+custom_interval <- data.frame(
+  start = 0, end = Inf,
+  auclast = TRUE, aucinf.obs = TRUE,
+  exposure.ratio = TRUE
+)
+
+o_data <- PKNCAdata(o_conc, o_dose, intervals = custom_interval)
+o_nca  <- pk.nca(o_data)
+
+as.data.frame(o_nca) |>
+  dplyr::filter(PPTESTCD %in% c("auclast", "aucinf.obs", "exposure.ratio")) |>
+  dplyr::select(subject, PPTESTCD, PPORRES) |>
+  dplyr::arrange(subject, PPTESTCD)
+```
+
+## Options system
+
+`PKNCA.options()` is a named list stored as a package-level environment. It is accessed in three ways:
+
+```{r}
+# 1. Read all options
+PKNCA.options()
+
+# 2. Read a specific option
+PKNCA.options("min.hl.points")
+
+# 3. Set globally (affects all subsequent analyses in the session)
+old <- PKNCA.options(min.hl.points = 4)
+PKNCA.options("min.hl.points")
+
+# 4. Restore previous value
+PKNCA.options(old)
+PKNCA.options("min.hl.points")
+```
+
+> Prefer passing `options = list(...)` to `PKNCAdata()` over mutating global options. Global changes persist across analyses in the same session.
+
+## Sparse PK
+
+Sparse PK (one or two samples per subject, common in preclinical or paediatric studies) is handled via a parallel code path:
+
+- Set `sparse = TRUE` in `PKNCAconc()`
+- Concentrations are pooled across subjects per timepoint
+- Mean concentration-time profile is computed, then NCA is run on that profile
+- Supported parameters are flagged with `sparse = TRUE` in their `add.interval.col()` registration
+
+## Key internal functions
+
+| Function | Purpose |
+|---|---|
+| `get.interval.cols()` | Return full parameter registry |
+| `PKNCA:::sort.interval.cols()` | Topological sort → execution order |
+| `PKNCA:::pk.nca.interval()` | Compute all parameters for one interval/group |
+| `pknca_units_table()` | Build unit assignment/conversion table |
+| `PKNCA_impute_method_*()` | Built-in imputation methods |
+| `pk.calc.auc.last()` | Core AUC calculation (trapezoidal) |
+| `pk.calc.half.life()` | λz regression with best-fit selection |
+
+---
+
+> **Depth note (for Teun):** This overview covers the surface. The formalsmap system, business rules (`002-pk.business.rules.R`), and the validation framework (`v60-PKNCA-validation.Rmd`) are richer topics — revisit when needed.
