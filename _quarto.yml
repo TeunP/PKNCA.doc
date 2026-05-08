@@ -20,6 +20,7 @@ website:
           - user/workflow.qmd
           - user/intravascular.qmd
           - user/extravascular.qmd
+          - user/sparse.qmd
       - section: "Developer"
         contents:
           - dev/function-deps.qmd
