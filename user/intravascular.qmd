@@ -250,7 +250,7 @@ mrt_params <- data.frame(
   start       = first_t,
   end         = Inf,
   mrt.iv.last = TRUE,
-  mrt.iv.inf.obs = TRUE
+  mrt.iv.obs  = TRUE
 )
 
 o_data_mrt <- PKNCAdata(o_conc, o_dose, intervals = mrt_params, impute = "start_conc0")
@@ -384,7 +384,7 @@ iv_relevant <- c(
   "c0", "cmax", "tmax", "tlast", "clast.obs",
   "half.life", "lambda.z", "lambda.z.n.points", "r.squared", "adj.r.squared",
   "cl.obs", "cl.pred", "vz.obs", "vz.pred",
-  "mrt.iv.last", "mrt.iv.inf.obs", "mrt.iv.inf.pred"
+  "mrt.iv.last", "mrt.iv.obs", "mrt.iv.pred"
 )
 
 # Which of these are registered in PKNCA?

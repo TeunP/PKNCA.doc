@@ -452,7 +452,7 @@ ev_relevant <- c(
   "half.life", "lambda.z", "lambda.z.n.points",
   "r.squared", "adj.r.squared",
   "cl.obs", "cl.pred", "vz.obs", "vz.pred",
-  "mrt.last", "mrt.inf.obs",
+  "mrt.last", "mrt.obs",
   "tlast", "tfirst", "clast.obs"
 )
 
