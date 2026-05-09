@@ -4,7 +4,7 @@ project:
 
 book:
   title: "PKNCA: Noncompartmental Analysis in R"
-  author: "PKNCA Community"
+  author: "Teun M. Post"
   date: today
   description: "A comprehensive guide to the PKNCA R package (≥ 0.12.2) — covering every function, parameter, and workflow with runnable examples."
   repo-url: https://github.com/humanpred/pknca
