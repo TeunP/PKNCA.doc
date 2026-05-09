@@ -221,13 +221,14 @@ ggplot(d_plot, aes(x = time, y = conc)) +
 
 ### When to use which method
 
-| Study type | Recommended method |
-|---|---|
-| Most oral/extravascular | `"lin up/log down"` (default) |
-| IV infusion with smooth decline | `"lin up/log down"` |
-| Regulatory (some agencies) | `"linear"` |
-| Highly irregular profiles with zeros | `"linear"` |
-| Never recommended | `"lin-log"` (numerical issues) |
+| Study type | Recommended method | Notes |
+|---|---|---|
+| Most oral/extravascular | `"lin up/log down"` (default) | Linear on ascending phase, log-linear on declining phase |
+| IV bolus | `"lin up/log down"` (default) | Profile is entirely declining, so log-linear is used throughout — equivalent to `"lin-log"` for pure bolus but without the Tmax ambiguity |
+| IV infusion with smooth decline | `"lin up/log down"` | Concentrations rise during infusion (linear) then fall after end of infusion (log-linear) |
+| Regulatory (some agencies) | `"linear"` | Some health authorities require the linear trapezoidal rule throughout |
+| Highly irregular profiles with zeros | `"linear"` | Log-linear is undefined when either endpoint is zero; `"linear"` is the safe fallback |
+| Never recommended | `"lin-log"` | Switches at Tmax rather than on direction of change — gives wrong method for post-Tmax secondary peaks |
 
 ---
 
