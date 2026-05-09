@@ -83,8 +83,7 @@ o_conc_plasma <- PKNCAconc(d_plasma, conc ~ time | Subject)
 o_conc_urine  <- PKNCAconc(
   urine_collections,
   conc ~ time | Subject,
-  volume   = "volume",    # column with urine volume (mL)
-  duration = "collection" # optional: mark that these are interval collections
+  volume = "volume"    # column with urine volume (mL)
 )
 
 o_dose <- PKNCAdose(d_dose, dose ~ time | Subject, route = "intravascular")

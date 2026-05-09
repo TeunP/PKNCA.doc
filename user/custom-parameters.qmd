@@ -132,37 +132,43 @@ as.data.frame(o_nca_c2) |>
 
 ---
 
-## Example 3: multi-value return
+## Example 3: multiple related parameters sharing a dependency
 
-A function can return a **named list** to register multiple output parameters at once. Each name in the list becomes a separate row in the results.
+When computing several related quantities (e.g., early AUC, late AUC, and their ratio), register each as its own function. Each function reads from the already-computed `auclast` dependency.
 
 ```{r}
-# Compute early and late AUC portions simultaneously
-pk.calc.auc.split <- function(conc, time, auclast) {
-  # Fraction of AUClast in first 4h vs. rest
-  auc_early <- pk.calc.auc.last(conc[time <= 4], time[time <= 4])
-  auc_late  <- auclast - auc_early
-  list(
-    auc.early = auc_early,
-    auc.late  = auc_late,
-    auc.early.fraction = auc_early / auclast
-  )
+pk.calc.auc.early <- function(conc, time) {
+  t_idx <- time <= 4
+  if (sum(t_idx) < 2) return(NA_real_)
+  pk.calc.auc.last(conc[t_idx], time[t_idx])
+}
+
+pk.calc.auc.late <- function(conc, time, auclast) {
+  t_idx <- time <= 4
+  if (sum(t_idx) < 2) return(NA_real_)
+  auclast - pk.calc.auc.last(conc[t_idx], time[t_idx])
+}
+
+pk.calc.auc.early.frac <- function(conc, time, auclast) {
+  t_idx <- time <= 4
+  if (sum(t_idx) < 2) return(NA_real_)
+  pk.calc.auc.last(conc[t_idx], time[t_idx]) / auclast
 }
 
 add.interval.col(
   name        = "auc.early",
-  FUN         = "pk.calc.auc.split",
+  FUN         = "pk.calc.auc.early",
   values      = c(FALSE, TRUE),
   unit_type   = "auc",
   pretty_name = "AUC 0-4h",
   desc        = "AUC from 0 to 4 h",
-  depends     = "auclast",
-  formalsmap  = list(conc = "conc", time = "time", auclast = "auclast")
+  depends     = NULL,
+  formalsmap  = list(conc = "conc", time = "time")
 )
 
 add.interval.col(
   name        = "auc.late",
-  FUN         = "pk.calc.auc.split",
+  FUN         = "pk.calc.auc.late",
   values      = c(FALSE, TRUE),
   unit_type   = "auc",
   pretty_name = "AUC 4h to last",
@@ -173,7 +179,7 @@ add.interval.col(
 
 add.interval.col(
   name        = "auc.early.fraction",
-  FUN         = "pk.calc.auc.split",
+  FUN         = "pk.calc.auc.early.frac",
   values      = c(FALSE, TRUE),
   unit_type   = "fraction",
   pretty_name = "Early AUC fraction",
@@ -182,6 +188,8 @@ add.interval.col(
   formalsmap  = list(conc = "conc", time = "time", auclast = "auclast")
 )
 ```
+
+> **Note:** Each parameter must be registered with its own distinct function. PKNCA does not support returning a named list from a single function to populate multiple output parameters — each output needs its own `add.interval.col()` call.
 
 ```{r}
 o_nca_split <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = data.frame(

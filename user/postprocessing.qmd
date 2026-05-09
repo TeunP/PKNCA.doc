@@ -257,7 +257,7 @@ PKNCA.set.summary(
 
 ## Inspecting the terminal regression window
 
-`get_halflife_points()` returns the individual observations that were included in the selected λz regression for each subject. Useful for QC review or plotting.
+`get_halflife_points()` returns a logical vector aligned with the original concentration data — `TRUE` if that observation was used in the λz regression, `FALSE` if it was available but excluded, `NA` if half-life was not computed for that interval.
 
 ```{r}
 d_conc_pp <- as.data.frame(Theoph) |> rename(time = Time, subject = Subject)
@@ -270,25 +270,26 @@ d_dose_pp <- Theoph |> as.data.frame() |>
 o_conc_pp <- PKNCAconc(d_conc_pp, conc ~ time | subject)
 o_dose_pp <- PKNCAdose(d_dose_pp, dose ~ time | subject, route = "extravascular")
 o_nca_pp  <- pk.nca(PKNCAdata(o_conc_pp, o_dose_pp,
-                               intervals = data.frame(start=0, end=Inf, half.life=TRUE)))
+                               intervals = data.frame(start = 0, end = Inf, half.life = TRUE)))
 
-# Get the points used in each subject's terminal regression
-hl_pts <- get_halflife_points(o_nca_pp)
-head(hl_pts)
+# Logical vector (TRUE = used in lambda.z fit)
+hl_used <- get_halflife_points(o_nca_pp)
+table(hl_used, useNA = "always")
 ```
 
 ```{r}
-# Plot: highlight regression points for subject 1
-subj1_conc <- d_conc_pp |> filter(subject == "1")
-subj1_pts  <- hl_pts    |> filter(subject == "1")
+# Attach to concentration data for plotting
+d_conc_annotated <- d_conc_pp |> mutate(in_lambda_z = hl_used)
+subj1_conc <- d_conc_annotated |> filter(subject == "1")
 
-ggplot(subj1_conc, aes(x = time, y = conc)) +
+ggplot(subj1_conc, aes(x = time, y = conc, colour = in_lambda_z)) +
   geom_line(colour = "grey70") +
-  geom_point(colour = "grey50", size = 2) +
-  geom_point(data = subj1_pts, aes(x = time, y = conc),
-             colour = "firebrick", size = 3, shape = 21, fill = "firebrick", alpha = 0.6) +
+  geom_point(size = 3) +
+  scale_colour_manual(values = c("FALSE" = "grey50", "TRUE" = "firebrick"),
+                      labels = c("not used", "used in lambda.z"), name = NULL,
+                      na.value = "grey80") +
   scale_y_log10() +
-  labs(title = "Subject 1 — points used in λz regression (red)",
+  labs(title = "Subject 1 - points used in lambda.z regression (red)",
        x = "Time (h)", y = "Concentration (mg/L) [log scale]") +
   theme_minimal()
 ```

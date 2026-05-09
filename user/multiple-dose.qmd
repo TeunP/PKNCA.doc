@@ -177,11 +177,12 @@ as.data.frame(o_nca_ceoi) |>
 When data span multiple dose occasions, define one interval row per occasion per group. PKNCA applies each interval independently.
 
 ```{r}
-# Two dosing intervals: 0-12h and 12-24h (simulate second interval)
-d_conc_2dose <- bind_rows(
-  d_conc_ss |> mutate(occ = 1),
-  d_conc_ss |> mutate(time = time + 12, occ = 2)
-)
+# Two dosing intervals: 0-12h and 12-24h
+# The t=12 sample belongs to the START of the second interval; exclude it from the first
+d_conc_occ1 <- d_conc_ss |> filter(time < 12)   # first interval: 0 to <12
+d_conc_occ2 <- d_conc_ss |> mutate(time = time + 12)  # second interval: 12 to 24
+
+d_conc_2dose <- bind_rows(d_conc_occ1, d_conc_occ2)
 
 # Two dose events
 d_dose_2dose <- bind_rows(
@@ -214,17 +215,18 @@ as.data.frame(o_nca_2d) |>
 
 ## Finding tau automatically: `find.tau()`
 
-When the dosing interval is not known a priori, `find.tau()` estimates it from the dosing times in a `PKNCAdose` object.
+When the dosing interval is not known a priori, `find.tau()` estimates it from a numeric vector of dose times. It returns the most common (modal) inter-dose interval.
 
 ```{r}
-# find.tau returns the most common dosing interval
-find.tau(o_dose_2d)
+# Dose times for one subject: 0, 12, 24, 36, 48, 60 h
+dose_times <- c(0, 12, 24, 36, 48, 60)
+find.tau(dose_times)
 ```
 
 Use the result to construct intervals programmatically:
 
 ```{r}
-tau_detected <- find.tau(o_dose_2d)
+tau_detected <- find.tau(d_dose_2dose$time)
 cat("Detected tau:", tau_detected, "h\n")
 ```
 
@@ -232,20 +234,17 @@ cat("Detected tau:", tau_detected, "h\n")
 
 ## Vss at multiple dose (`vss.md.*`)
 
-`vss.md.obs` and `vss.md.pred` are volume of distribution at steady state computed using the multiple-dose MRT formula. They require `auclast` (over a tau interval) and dose.
+`vss.md.obs` and `vss.md.pred` are the volume of distribution at steady state using the multiple-dose MRT formula:
 
-```{r}
-vss_md_interval <- data.frame(
-  start      = 0,
-  end        = tau,
-  vss.md.obs = TRUE,
-  vss.md.pred = TRUE
-)
+$$V_{ss} = CL \times MRT_{md}$$
 
-o_nca_vss <- pk.nca(PKNCAdata(o_conc_ss, o_dose_ss, intervals = vss_md_interval))
+where MRT_md accounts for the accumulation over repeated dosing.
 
-as.data.frame(o_nca_vss) |>
-  filter(PPTESTCD %in% c("vss.md.obs", "vss.md.pred")) |>
-  select(Subject, PPTESTCD, PPORRES) |>
-  arrange(Subject, PPTESTCD)
-```
+| Parameter | Meaning |
+|---|---|
+| `mrt.md.obs` | Multiple-dose MRT (observed Clast) |
+| `mrt.md.pred` | Multiple-dose MRT (predicted Clast) |
+| `vss.md.obs` | Vss from mrt.md.obs and cl.last |
+| `vss.md.pred` | Vss from mrt.md.pred and cl.last |
+
+> **Note:** `vss.md.*` and `mrt.md.*` require the `tau` argument internally but PKNCA 0.12.1 does not correctly resolve it from the interval specification for general use. These parameters work correctly when PKNCA can determine tau from the dosing schedule. Use them in conjunction with explicitly specified tau intervals and verify output against manual calculations.

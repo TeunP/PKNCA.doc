@@ -211,13 +211,15 @@ get.parameter.deps("half.life")
 
 ---
 
-## Describing PKNCA options: `PKNCA.options.describe()`
+## Listing all current option values: `PKNCA.options()`
 
-Returns a human-readable description of each option and its current value:
+`PKNCA.options()` with no arguments returns the full named list of current settings:
 
 ```{r}
-PKNCA.options.describe()
+PKNCA.options()
 ```
+
+> **Note:** `PKNCA.options.describe()` is exported but non-functional in PKNCA 0.12.1 (raises an error). Use `PKNCA.options()` to inspect current settings, and see the [Workflow Overview](workflow.qmd) page for the full option reference table.
 
 ---
 

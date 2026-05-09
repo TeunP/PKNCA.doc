@@ -328,8 +328,8 @@ The **area under the first-moment curve** (AUMC) is used to calculate MRT.
 |---|---|
 | `aumclast` | AUMC from 0 to last measurable concentration |
 | `aumcall` | AUMC from 0 to last, treating BLQ as 0 |
-| `aumc.inf.obs` | AUMC extrapolated to ∞, observed Clast |
-| `aumc.inf.pred` | AUMC extrapolated to ∞, predicted Clast |
+| `aumcinf.obs` | AUMC extrapolated to ∞, observed Clast |
+| `aumcinf.pred` | AUMC extrapolated to ∞, predicted Clast |
 
 ```{r}
 aumc_interval <- data.frame(
@@ -337,13 +337,14 @@ aumc_interval <- data.frame(
   end           = Inf,
   aumclast      = TRUE,
   aumcall       = TRUE,
-  aumc.inf.obs  = TRUE
+  aumcinf.obs   = TRUE,
+  aumcinf.pred  = TRUE
 )
 
 o_nca_aumc <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = aumc_interval))
 
 as.data.frame(o_nca_aumc) |>
-  filter(PPTESTCD %in% c("aumclast", "aumcall", "aumc.inf.obs")) |>
+  filter(grepl("^aumc", PPTESTCD)) |>
   select(PPTESTCD, PPORRES)
 ```
 
