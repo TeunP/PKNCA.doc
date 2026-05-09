@@ -350,7 +350,7 @@ Available built-in methods (comma-separate to chain them):
 
 | Method | What it does |
 |---|---|
-| `start_predose` | Adds concentration = 0 at time 0 if no predose sample exists |
+| `start_predose` | Uses the last pre-interval concentration at the interval start (no sample is added if no pre-interval observation exists) |
 | `start_conc0` | Sets the predose concentration to 0 unconditionally |
 | `start_cmin` | Uses the minimum observed concentration as predose value |
 

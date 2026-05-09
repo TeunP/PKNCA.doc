@@ -91,7 +91,7 @@ PKNCA.options("single.dose.aucs")
 The two default rows are:
 
 - **Row 1** (`end = 24`): calculates `auclast` only — the workhorse for most single-dose studies.
-- **Row 2** (`end = Inf`): calculates `cmax`, `tmax`, `tlast`, `clast.obs`, `half.life`, and `aucinf.obs` — the full single-dose parameter set.
+- **Row 2** (`end = Inf`): calculates `cmax`, `tmax`, `half.life`, and `aucinf.obs`.
 
 These defaults are suitable for a single-dose extravascular study with at least 24 hours of sampling. For any other design (multiple dose, IV, urine, etc.) you should supply explicit intervals.
 

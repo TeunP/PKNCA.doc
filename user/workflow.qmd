@@ -158,7 +158,7 @@ All options and what they control:
 | Option | Default | Effect |
 |---|---|---|
 | `min.hl.points` | `3` | Minimum data points for a valid λz regression |
-| `min.hl.r.squared` | `0.9` | Minimum adjusted R² for λz acceptance |
+| `min.hl.r.squared` | `0.9` | Minimum unadjusted R² for λz acceptance (post-hoc exclusion via `exclude_nca_min.hl.r.squared()`) |
 | `adj.r.squared.factor` | `0.0001` | Selection tolerance: the longest regression window whose adj.R² is within this value of the best adj.R² is chosen (favours more points when fits are nearly equal) |
 | `min.span.ratio` | `2` | Minimum ratio of time span to half-life; rejects regressions over too short a window |
 | `allow.tmax.in.half.life` | `FALSE` | Allow Tmax timepoint in λz regression |

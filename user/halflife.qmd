@@ -214,19 +214,63 @@ as.data.frame(o_nca_incl) |>
 
 ## Tobit regression for BLQ-heavy data
 
-> **Note:** The tobit method (`hl_method = "tobit"`) is not available in PKNCA 0.12.1 (current CRAN). It was added in a later development version. This documentation is based on CRAN 0.12.1 — upgrade to the GitHub version to use it.
+> **Version note:** The Tobit method (`hl_method = "tobit"`) and the associated option `tobit_n_points_penalty` are **not available in PKNCA 0.12.1 (current CRAN)**. They were introduced in a later development version on GitHub. The section below documents the method conceptually and describes the GitHub API. To verify on your installation:
+>
+> ```r
+> "hl_method" %in% names(PKNCA.options())  # FALSE in 0.12.1
+> ```
 
-When available, the tobit method treats BLQ observations as left-censored data and includes them in the likelihood, rather than dropping them. It is most valuable when > 20–30% of terminal-phase observations are BLQ.
+### Why Tobit?
 
-Options (once available):
+In studies where drug concentrations in the terminal elimination phase are frequently below the lower limit of quantification (BLQ), ordinary least-squares (OLS) log-linear regression produces biased estimates of λz. The bias arises because OLS either:
+
+- **drops** BLQ observations entirely — shrinking the regression window and losing information about the true terminal slope, or
+- **substitutes** BLQ = 0 — which is undefined on the log scale and forces arbitrary imputation.
+
+Tobit regression handles this correctly by treating each BLQ observation as a **left-censored** data point. Rather than requiring a specific concentration value, it only asserts `C ≤ LLOQ`. The regression uses the full profile, including censored observations, without fabricating values.
+
+### The key statistical difference from OLS
+
+OLS minimises the sum of squared residuals across observed concentrations. Tobit instead **maximises a likelihood** that has two components:
+
+1. **Observed concentrations** (above LLOQ): contribute via the normal log-likelihood of the log-transformed concentration given the fitted log-linear line.
+2. **BLQ observations**: contribute the cumulative probability that the true (unobserved) concentration falls at or below the LLOQ, i.e. `Φ((log(LLOQ) − predicted) / σ)`.
+
+This means BLQ timepoints actively inform the slope estimate — they pull the λz estimate toward the true terminal slope — rather than being discarded.
+
+### When to consider Tobit
+
+Tobit regression is most beneficial when:
+
+- More than approximately **20% of terminal-phase observations are BLQ** — below this threshold, OLS and Tobit estimates converge.
+- The drug has **low tissue concentrations** or a short distribution half-life relative to the sampling schedule, making late timepoints frequently BLQ.
+- **Pediatric or geriatric studies** with limited sampling windows, where sparse late-time samples are often at or near the LLOQ.
+- The terminal slope is important for downstream parameters (AUC extrapolation, mean residence time) and precision matters for regulatory submissions.
+
+### GitHub development version API
+
+In the GitHub version of PKNCA, Tobit is accessed via the `options` argument to `PKNCAdata()`:
+
+```r
+# Development version only — not available in PKNCA 0.12.1
+o_data_tobit <- PKNCAdata(
+  o_conc, o_dose,
+  intervals = data.frame(start = 0, end = Inf, half.life = TRUE),
+  options = list(hl_method = "tobit")
+)
+```
+
+The LLOQ threshold is set through the `conc.blq` argument on `PKNCAconc()`. Observations flagged as BLQ are treated as censored at that threshold rather than as measured values.
+
+Additional options available in the development version:
 
 | Option | Default | Effect |
 |---|---|---|
-| `hl_method` | `"log-linear"` | `"log-linear"` or `"tobit"` |
-| `tobit_n_points_penalty` | `0` | Penalty per extra point in tobit (0 = no penalty) |
-| `tobit_optim_control` | `list()` | Control list passed to `stats::optim()` |
+| `hl_method` | `"log-linear"` | `"log-linear"` (OLS) or `"tobit"` (censored likelihood) |
+| `tobit_n_points_penalty` | `0` | Penalty added to the log-likelihood per extra terminal point; positive values favour shorter windows |
+| `tobit_optim_control` | `list()` | Control list forwarded to `stats::optim()` for the Tobit optimisation |
 
-See `vignette("v06-half-life-calculation-tobit", package = "PKNCA")` for a detailed comparison.
+See `vignette("v06-half-life-calculation-tobit", package = "PKNCA")` (development version) for a detailed simulation comparison between OLS and Tobit estimates.
 
 ---
 

@@ -106,7 +106,7 @@ tss_linear <- pk.tss.stepwise.linear(
 tss_linear
 ```
 
-The result is a single dose occasion number — the first occasion where concentrations are deemed flat.
+The result is a data frame with a `tss.stepwise.linear` column containing the first dose occasion number where concentrations are deemed flat (or `NA` if steady state cannot be determined from the data).
 
 ---
 

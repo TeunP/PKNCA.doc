@@ -133,6 +133,8 @@ All 14 available dose-normalized parameters (verified from registry):
 
 Each `.dn` parameter is computed as `parameter / dose` where `dose` is the dose from the `PKNCAdose` object for that interval.
 
+> **Note:** Some versions of PKNCA (GitHub development) include `normalize_by_col()` for normalizing by arbitrary columns (e.g., body weight). This function is not present in PKNCA 0.12.1 on CRAN. Use the `.dn` dose-normalized variants (documented above) for dose normalization, or compute additional normalizations manually from `as.data.frame()` results.
+
 ```{r}
 dn_interval <- data.frame(
   start           = 0,

@@ -192,10 +192,10 @@ Overestimates during the descending phase (gives too much weight to the higher c
 
 **Lin-log (`"lin-log"`)**
 
-Uses log-linear interpolation throughout the descending phase:
-$$\text{AUC}_{t_i \to t_{i+1}} = \frac{(C_i - C_{i+1})}{\ln C_i - \ln C_{i+1}} \times (t_{i+1} - t_i)$$
+Uses **linear** integration from start up to Tmax, and **log-linear** integration from Tmax onward:
+$$\text{AUC}_{t_i \to t_{i+1}} = \frac{(C_i - C_{i+1})}{\ln C_i - \ln C_{i+1}} \times (t_{i+1} - t_i) \quad \text{(post-Tmax)}$$
 
-Cannot handle zero or negative concentrations. Tends to underestimate the ascending phase.
+The switch point is Tmax (not whether concentrations are rising or falling), so any post-Tmax secondary peak is integrated log-linearly even if concentrations are rising. Falls back to linear for any interval where either endpoint is zero. Not recommended — `"lin up/log down"` is strictly better for nearly all use cases as it switches on actual direction rather than Tmax.
 
 **Lin up / log down (`"lin up/log down"`) — default**
 

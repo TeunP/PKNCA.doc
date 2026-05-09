@@ -28,7 +28,7 @@ suppressMessages(o_nca <- pk.nca(d_data))
 
 ## 1. CDISC PP Domain Alignment
 
-The CDISC PP domain stores one parameter value per row, with the parameter code in `PPTESTCD`, the numeric result in `PPORRES`, and the standardized result in `PPSTRESN`. PKNCA's `as.data.frame()` output follows exactly this long-format convention.
+The CDISC PP domain stores one parameter value per row, with the parameter code in `PPTESTCD`, the numeric result in `PPORRES`, and the standardized result in `PPSTRES` (character) when a units table is provided. PKNCA's `as.data.frame()` output follows exactly this long-format convention.
 
 ```{r result-columns}
 df <- as.data.frame(o_nca)

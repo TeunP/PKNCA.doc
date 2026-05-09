@@ -160,7 +160,20 @@ cat("PKNCA AUClast:              ", round(pknca_auclast, 3), "\n")
 cat("Difference (manual - PKNCA):", round(manual_auclast - pknca_auclast, 6), "\n")
 ```
 
-The two values should agree to numerical precision. PKNCA uses the linear-up / log-down trapezoid method by default (controlled by `PKNCA.options("auc.method")`); for an all-linear comparison, either set `PKNCA.options(auc.method = "linear")` or use only time points where the log-down rule would not apply (i.e., where concentrations are not monotonically decreasing between consecutive points).
+The manual calculation above uses the **linear** trapezoidal rule throughout. PKNCA defaults to **lin up / log down** (`PKNCA.options("auc.method")` = `"lin up/log down"`), which uses log-linear integration on any descending interval — so the two values will differ for a typical PK profile with a descending phase. To make them agree exactly, set `auc.method = "linear"`:
+
+```{r linear-match}
+suppressMessages(
+  o_nca_lin <- pk.nca(PKNCAdata(d_conc, d_dose,
+    intervals = data.frame(start = 0, end = Inf, auclast = TRUE),
+    options   = list(auc.method = "linear")))
+)
+pknca_lin <- as.data.frame(o_nca_lin) |>
+  filter(Subject == "1", PPTESTCD == "auclast") |> pull(PPORRES)
+cat("Manual (linear trap):   ", round(manual_auclast, 3), "\n")
+cat("PKNCA  (linear method): ", round(pknca_lin,       3), "\n")
+cat("Difference:             ", round(manual_auclast - pknca_lin, 6), "\n")
+```
 
 To confirm the current method:
 
