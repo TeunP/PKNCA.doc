@@ -1,0 +1,268 @@
+---
+title: "Units Assignment and Conversion"
+---
+
+```{r setup, include=FALSE}
+library(PKNCA)
+library(dplyr)
+library(ggplot2)
+conflicted::conflicts_prefer(dplyr::filter, dplyr::select, .quiet = TRUE)
+```
+
+## Why units matter
+
+By default PKNCA returns bare numbers. When you provide units, every row in
+`as.data.frame()` gains CDISC-style columns that mirror the SDTM PK-Parameters
+domain:
+
+| Column | Meaning |
+|--------|---------|
+| `PPORRESU` | Original reporting unit (the unit the result is expressed in) |
+| `PPSTRESU` | Standardised unit (populated when a conversion is requested) |
+| `PPSTRES` | Result expressed in the standardised unit |
+
+This makes the output submission-ready and prevents silent unit mismatches when
+combining results from multiple studies or analytes.
+
+---
+
+## Assigning units at object creation
+
+Units can be supplied directly to `PKNCAconc()` and `PKNCAdose()` as string
+literals or as the name of a column in your data frame that holds the unit
+string per row.
+
+### Arguments in `PKNCAconc()`
+
+Verified with:
+
+```r
+formals(getS3method("PKNCAconc", "data.frame")) |> names()
+```
+
+The unit-related arguments are:
+
+- `concu` — concentration unit (e.g. `"mg/L"`)
+- `timeu` — time unit (e.g. `"h"`)
+- `amountu` — amount unit, used for urine/fecal data (e.g. `"mg"`)
+- `concu_pref` — preferred output unit for concentration (triggers conversion)
+- `timeu_pref` — preferred output unit for time (triggers conversion)
+- `amountu_pref` — preferred output unit for amount (triggers conversion)
+
+### Arguments in `PKNCAdose()`
+
+- `doseu` — dose unit (e.g. `"mg"`)
+- `doseu_pref` — preferred output unit for dose (triggers conversion)
+
+### Example: units as string literals
+
+```{r}
+Theoph_df <- as.data.frame(Theoph)
+d_dose <- Theoph_df |>
+  dplyr::filter(Time == 0) |>
+  dplyr::mutate(amt = Dose * Wt)
+
+o_conc <- PKNCAconc(Theoph_df, conc ~ Time | Subject,
+                    concu = "mg/L", timeu = "h")
+
+o_dose <- PKNCAdose(d_dose, amt ~ Time | Subject,
+                    doseu = "mg")
+```
+
+### Example: units from a data column
+
+```{r}
+Theoph_units <- Theoph_df |>
+  dplyr::mutate(conc_unit = "mg/L", time_unit = "h")
+
+o_conc_col <- PKNCAconc(Theoph_units, conc ~ Time | Subject,
+                        concu = "conc_unit", timeu = "time_unit")
+```
+
+---
+
+## `pknca_units_table()`
+
+This function builds a complete mapping from every NCA parameter to its
+reporting unit, derived from the four base units you supply.
+
+### Arguments
+
+```r
+args(pknca_units_table)
+# function(concu, doseu, amountu, timeu,
+#          concu_pref = NULL, doseu_pref = NULL,
+#          amountu_pref = NULL, timeu_pref = NULL,
+#          conversions = data.frame())
+```
+
+All four of `concu`, `doseu`, `amountu`, `timeu` are required. PKNCA derives
+composite units automatically (e.g. `auclast` gets `h*mg/L` from `timeu="h"`
+and `concu="mg/L"`).
+
+### Output columns
+
+The returned data frame has exactly two columns when no preferred units are
+requested:
+
+| Column | Content |
+|--------|---------|
+| `PPORRESU` | Reporting unit for this parameter |
+| `PPTESTCD` | Parameter code (e.g. `"cmax"`, `"auclast"`, `"tmax"`) |
+
+When preferred units are requested, two additional columns appear:
+`PPSTRESU` (target unit) and `conversion_factor`.
+
+```{r}
+u <- pknca_units_table(concu = "mg/L", timeu = "h",
+                       doseu = "mg", amountu = "mg")
+
+# The table covers all NCA parameters
+nrow(u)
+
+# Sample rows
+u[u$PPTESTCD %in% c("cmax", "auclast", "tmax", "cl.obs", "vz.obs"), ]
+```
+
+---
+
+## Passing the units table to `PKNCAdata()`
+
+Pass the table via the `units` argument. If `units` is provided, any units
+given directly to `PKNCAconc()` or `PKNCAdose()` are ignored.
+
+```{r}
+# Build objects (units here will be overridden by the table below)
+o_conc2 <- PKNCAconc(Theoph_df, conc ~ Time | Subject)
+o_dose2  <- PKNCAdose(d_dose, amt ~ Time | Subject)
+
+u <- pknca_units_table(concu = "mg/L", timeu = "h",
+                       doseu = "mg", amountu = "mg")
+
+o_data <- PKNCAdata(o_conc2, o_dose2, units = u)
+
+# Run NCA
+res <- pk.nca(o_data)
+
+# Units appear in the PPORRESU column
+df <- as.data.frame(res)
+df |>
+  dplyr::filter(Subject == "1",
+                PPTESTCD %in% c("auclast", "cmax", "tmax", "cl.obs")) |>
+  dplyr::select(PPTESTCD, PPORRES, PPORRESU)
+```
+
+---
+
+## Preferred units
+
+Setting `concu_pref`, `timeu_pref`, `doseu_pref`, or `amountu_pref` in
+`pknca_units_table()` tells PKNCA to convert results to those preferred units.
+PKNCA calculates the conversion factor automatically for metric prefixes and
+time unit changes.
+
+When preferred units are active the results data frame gains:
+
+- `PPSTRESU` — the preferred unit
+- `PPSTRES` — the result in the preferred unit
+
+```{r}
+u_pref <- pknca_units_table(
+  concu = "mg/L", timeu  = "h",
+  doseu = "mg",   amountu = "mg",
+  concu_pref = "ug/L",   # mg/L → ug/L  (× 1 000)
+  timeu_pref = "day"     # h   → day   (× 1/24)
+)
+
+# Inspect what the table says for key parameters
+u_pref[u_pref$PPTESTCD %in% c("cmax", "auclast", "tmax"), ]
+```
+
+```{r}
+o_data_pref <- PKNCAdata(o_conc2, o_dose2, units = u_pref)
+res_pref <- pk.nca(o_data_pref)
+
+as.data.frame(res_pref) |>
+  dplyr::filter(Subject == "1",
+                PPTESTCD %in% c("auclast", "cmax", "tmax")) |>
+  dplyr::select(PPTESTCD, PPORRES, PPORRESU, PPSTRES, PPSTRESU)
+```
+
+`PPORRES`/`PPORRESU` hold the original value and unit; `PPSTRES`/`PPSTRESU`
+hold the converted value and unit.
+
+---
+
+## Custom unit conversions
+
+For conversions PKNCA cannot derive automatically (e.g. mass ↔ molar, or a
+non-standard reporting preference), pass a `conversions` data frame to
+`pknca_units_table()`.
+
+### Required columns
+
+| Column | Type | Meaning |
+|--------|------|---------|
+| `PPORRESU` | character | The original unit to match |
+| `PPSTRESU` | character | The target unit |
+| `conversion_factor` | numeric | Multiplier (original × factor = target). Use `NA` to ask PKNCA to compute it. |
+
+### Example: report concentration as ug/mL instead of mg/L
+
+`mg/L` and `ug/mL` are numerically equal (factor = 1), but differ in label.
+
+```{r}
+my_conversions <- data.frame(
+  PPORRESU        = c("mg/L",   "h*mg/L"),
+  PPSTRESU        = c("ug/mL",  "h*ug/mL"),
+  conversion_factor = c(1,       1)
+)
+
+u_custom <- pknca_units_table(
+  concu = "mg/L", timeu = "h",
+  doseu = "mg",   amountu = "mg",
+  conversions = my_conversions
+)
+
+o_data_custom <- PKNCAdata(o_conc2, o_dose2, units = u_custom)
+res_custom    <- pk.nca(o_data_custom)
+
+as.data.frame(res_custom) |>
+  dplyr::filter(Subject == "1",
+                PPTESTCD %in% c("auclast", "cmax")) |>
+  dplyr::select(PPTESTCD, PPORRES, PPORRESU, PPSTRES, PPSTRESU)
+```
+
+---
+
+## Verifying units in results
+
+Call `as.data.frame()` on the `PKNCAresults` object. When a units table was
+provided, the `PPORRESU` column is always populated; `PPSTRESU` and `PPSTRES`
+appear only when preferred or custom conversions are in effect.
+
+```{r}
+df_all <- as.data.frame(res)
+
+# Confirm PPORRESU is present for every row
+stopifnot("PPORRESU" %in% names(df_all))
+
+# Browse the first several parameter results for subject 1
+df_all |>
+  dplyr::filter(Subject == "1") |>
+  dplyr::select(PPTESTCD, PPORRES, PPORRESU) |>
+  head(10)
+```
+
+---
+
+## Summary
+
+| Goal | How |
+|------|-----|
+| Assign units at data creation | `concu`, `timeu`, `doseu` args in `PKNCAconc()` / `PKNCAdose()` |
+| Build a complete unit table | `pknca_units_table(concu, doseu, amountu, timeu)` |
+| Pass units to the analysis | `PKNCAdata(..., units = u)` |
+| Convert to preferred output units | Add `concu_pref`, `timeu_pref`, etc. to `pknca_units_table()` |
+| Custom / non-metric conversions | `conversions` argument in `pknca_units_table()` |
+| Inspect units in results | `as.data.frame(res)$PPORRESU` |

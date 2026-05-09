@@ -1,0 +1,281 @@
+---
+title: "Concentration Imputation"
+---
+
+```{r setup, include=FALSE}
+library(PKNCA)
+library(dplyr)
+library(ggplot2)
+conflicted::conflicts_prefer(dplyr::filter, dplyr::select, .quiet = TRUE)
+```
+
+## Why imputation is needed
+
+NCA intervals are defined by a `start` and `end` time. For AUC and related
+parameters, PKNCA needs a concentration at the exact interval start. Two common
+situations require imputation:
+
+1. **No t = 0 sample.** The earliest measured concentration is after dosing, so
+   there is no observed value at the interval start (time 0).
+2. **Pre-dose sample.** A concentration was measured before the nominal dose
+   time (e.g. a residual carry-over sample). The interval starts at time 0 but
+   the only nearby observation has a negative relative time.
+
+Imputation is applied just before each individual interval is calculated, on a
+per-subject, per-interval basis. The original data frame is never modified.
+
+### Example data: Theoph with t = 0 removed
+
+```{r}
+Theoph_df <- as.data.frame(Theoph)
+
+# Remove the t = 0 observation to create a missing-baseline scenario
+d_conc_no0 <- Theoph_df |> dplyr::filter(Time > 0)
+d_dose      <- Theoph_df |>
+  dplyr::filter(Time == 0) |>
+  dplyr::mutate(amt = Dose * Wt)
+
+# Without imputation there is no concentration at the interval start
+o_conc <- PKNCAconc(d_conc_no0, conc ~ Time | Subject)
+o_dose <- PKNCAdose(d_dose, amt ~ Time | Subject)
+```
+
+```{r}
+# What does subject 1's profile look like?
+d_conc_no0 |>
+  dplyr::filter(Subject == "1") |>
+  head(5)
+```
+
+---
+
+## The three built-in strategies
+
+Verified with `args()`:
+
+```r
+args(PKNCA_impute_method_start_conc0)
+# function(conc, time, start = 0, ..., options = list())
+
+args(PKNCA_impute_method_start_predose)
+# function(conc, time, start, end, conc.group, time.group, ...,
+#          max_shift = NA_real_, options = list())
+
+args(PKNCA_impute_method_start_cmin)
+# function(conc, time, start, end, ..., options = list())
+```
+
+| Name | String to use | What it does |
+|------|--------------|--------------|
+| `PKNCA_impute_method_start_conc0` | `"start_conc0"` | Inserts a concentration of 0 at the interval start time |
+| `PKNCA_impute_method_start_predose` | `"start_predose"` | Uses the last observed concentration before the interval start |
+| `PKNCA_impute_method_start_cmin` | `"start_cmin"` | Uses the minimum concentration observed within the interval |
+
+### `start_conc0` — zero concentration at interval start
+
+Appropriate after a single-dose study when no pre-dose drug was present. The
+drug concentration at time 0 is assumed to be 0.
+
+```{r}
+o_data_c0 <- PKNCAdata(o_conc, o_dose, impute = "start_conc0")
+o_data_c0$impute   # verify the impute string is stored
+```
+
+```{r}
+res_c0 <- pk.nca(o_data_c0)
+
+as.data.frame(res_c0) |>
+  dplyr::filter(Subject == "1",
+                PPTESTCD %in% c("auclast", "cmax", "tmax")) |>
+  dplyr::select(Subject, PPTESTCD, PPORRES)
+```
+
+### `start_predose` — last pre-dose concentration
+
+Appropriate in multiple-dose or steady-state settings where a true pre-dose
+(trough) sample was collected just before administration. The method looks
+outside the current interval for the most recent observed concentration.
+
+```{r}
+o_data_pd <- PKNCAdata(o_conc, o_dose, impute = "start_predose")
+o_data_pd$impute
+```
+
+### `start_cmin` — minimum concentration in interval
+
+Appropriate as a conservative fallback: if no pre-dose value is available and
+zero cannot be assumed (e.g. metabolite or endogenous compound), use the
+minimum observed concentration in the interval as a lower-bound estimate.
+
+```{r}
+o_data_cmin <- PKNCAdata(o_conc, o_dose, impute = "start_cmin")
+o_data_cmin$impute
+```
+
+---
+
+## Applying imputation globally
+
+Pass a method name string to the `impute` argument of `PKNCAdata()`. The same
+strategy is applied to every subject and every interval.
+
+```{r}
+o_data_global <- PKNCAdata(o_conc, o_dose, impute = "start_conc0")
+
+res_global <- pk.nca(o_data_global)
+df_global  <- as.data.frame(res_global)
+
+# auclast is populated for all subjects despite the missing t = 0
+df_global |>
+  dplyr::filter(PPTESTCD == "auclast") |>
+  dplyr::select(Subject, PPORRES) |>
+  head(6)
+```
+
+---
+
+## Chaining methods
+
+Provide a comma-separated string to apply methods in sequence. Each method
+in the chain is tried in order; the first one that successfully adds a point
+at the interval start wins.
+
+```{r}
+# Try start_predose first; if it cannot find a pre-dose observation,
+# fall back to inserting zero
+o_data_chain <- PKNCAdata(o_conc, o_dose,
+                          impute = "start_predose,start_conc0")
+o_data_chain$impute
+```
+
+```{r}
+res_chain <- pk.nca(o_data_chain)
+
+as.data.frame(res_chain) |>
+  dplyr::filter(Subject == "1", PPTESTCD == "auclast") |>
+  dplyr::select(Subject, PPTESTCD, PPORRES)
+```
+
+---
+
+## Per-interval imputation
+
+Different intervals in the same dataset can use different strategies. Add an
+`impute` column to the intervals data frame, then pass the column name (as a
+string) to the `impute` argument of `PKNCAdata()`.
+
+```{r}
+my_intervals <- data.frame(
+  start  = c(0,   0),
+  end    = c(24,  Inf),
+  auclast = c(TRUE,  FALSE),
+  aucinf.obs = c(FALSE, TRUE),
+  cmax   = c(TRUE,  TRUE),
+  impute = c("start_conc0", "start_predose,start_conc0")
+)
+
+o_data_per_interval <- PKNCAdata(
+  o_conc, o_dose,
+  intervals = my_intervals,
+  impute    = "impute"         # name of the column to read
+)
+
+o_data_per_interval$impute
+o_data_per_interval$intervals[, c("start", "end", "impute")]
+```
+
+```{r}
+res_per <- pk.nca(o_data_per_interval)
+
+as.data.frame(res_per) |>
+  dplyr::filter(Subject == "1",
+                PPTESTCD %in% c("auclast", "aucinf.obs", "cmax")) |>
+  dplyr::select(Subject, PPTESTCD, PPORRES)
+```
+
+---
+
+## Writing a custom imputation function
+
+### Naming convention
+
+The function name **must** follow the pattern `PKNCA_impute_method_<name>`.
+PKNCA discovers imputation methods by scanning the search path for functions
+whose names match this prefix, so the convention is mandatory.
+
+### Required signature
+
+Modelled after the built-in functions:
+
+```r
+# Minimal required arguments (from args(PKNCA_impute_method_start_conc0)):
+PKNCA_impute_method_<name> <- function(conc, time, start = 0, ..., options = list())
+```
+
+The function receives:
+
+| Argument | Description |
+|----------|-------------|
+| `conc` | Numeric vector of concentrations for the current subject/interval |
+| `time` | Numeric vector of times (same length as `conc`) |
+| `start` | Interval start time |
+| `...` | Additional arguments (must be accepted and ignored) |
+| `options` | Named list of PKNCA options |
+
+### Return value
+
+A data frame with exactly two columns, `conc` and `time`, sorted by `time`.
+It should include all original observations **plus** any imputed points.
+
+### Example: impute with the mean of the first two observations
+
+```{r}
+PKNCA_impute_method_start_mean2 <- function(conc, time, start = 0, ...,
+                                             options = list()) {
+  # Only impute if the interval start is not already observed
+  if (!start %in% time) {
+    # Use the mean of the first two observed concentrations
+    imputed_conc <- mean(conc[order(time)][seq_len(min(2, length(conc)))])
+    conc <- c(imputed_conc, conc)
+    time <- c(start, time)
+  }
+  result <- data.frame(conc = conc, time = time)
+  result[order(result$time), ]
+}
+```
+
+```{r}
+# Use the custom method by its suffix
+o_data_custom <- PKNCAdata(o_conc, o_dose, impute = "start_mean2")
+res_custom     <- pk.nca(o_data_custom)
+
+as.data.frame(res_custom) |>
+  dplyr::filter(Subject == "1", PPTESTCD == "auclast") |>
+  dplyr::select(Subject, PPTESTCD, PPORRES)
+```
+
+---
+
+## When to use each strategy
+
+| Situation | Recommended strategy |
+|-----------|----------------------|
+| Single-dose study, no pre-dose drug expected | `start_conc0` |
+| Multiple-dose or steady-state, trough sample collected | `start_predose` |
+| Endogenous analyte or metabolite, zero implausible | `start_cmin` |
+| Uncertain: try pre-dose, fall back to zero | `"start_predose,start_conc0"` |
+| Non-standard logic required | Custom `PKNCA_impute_method_*` function |
+
+---
+
+## Summary
+
+- Imputation is triggered when no observation exists at the interval start time.
+- The three built-in methods are referenced by their suffix strings:
+  `"start_conc0"`, `"start_predose"`, `"start_cmin"`.
+- Global imputation: `PKNCAdata(..., impute = "start_conc0")`.
+- Chained methods: `impute = "start_predose,start_conc0"`.
+- Per-interval: add an `impute` column to the intervals data frame and pass
+  that column name to the `impute` argument of `PKNCAdata()`.
+- Custom functions: name them `PKNCA_impute_method_<name>` and return a
+  two-column data frame (`conc`, `time`).

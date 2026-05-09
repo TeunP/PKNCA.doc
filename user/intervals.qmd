@@ -1,0 +1,280 @@
+---
+title: "Interval Selection and Parameter Catalogue"
+---
+
+```{r setup, include=FALSE}
+library(PKNCA)
+library(dplyr)
+library(ggplot2)
+conflicted::conflicts_prefer(dplyr::filter, dplyr::select, .quiet = TRUE)
+```
+
+Intervals tell PKNCA *when* to calculate and *what* to calculate. Every NCA parameter is associated with exactly one interval row, and each row is independent of all others.
+
+---
+
+## 1. The Interval Data Frame Structure
+
+An interval specification is a plain R `data.frame` with one row per calculation window. Two columns are required:
+
+| Column  | Type    | Meaning                                              |
+|---------|---------|------------------------------------------------------|
+| `start` | numeric | Start of the calculation window (same units as time) |
+| `end`   | numeric | End of the calculation window; use `Inf` for open-ended windows |
+
+Every remaining column is a **parameter flag**: its name must match a known PKNCA parameter name and its value must be `TRUE` (calculate) or `FALSE` (skip). Columns set to `FALSE` are simply ignored, so you only need to list the parameters you actually want.
+
+```{r interval-structure}
+# A minimal interval: AUClast over the first 24 hours
+my_intervals <- data.frame(
+  start   = 0,
+  end     = 24,
+  auclast = TRUE
+)
+my_intervals
+```
+
+You can also request multiple parameters in a single row:
+
+```{r interval-multi-param}
+data.frame(
+  start      = 0,
+  end        = Inf,
+  cmax       = TRUE,
+  tmax       = TRUE,
+  half.life  = TRUE,
+  aucinf.obs = TRUE
+)
+```
+
+Column names cannot overlap with `start`, `end`, or any grouping variable name you use in `PKNCAconc()`.
+
+---
+
+## 2. Group Matching
+
+PKNCA matches interval rows to concentration data by comparing the **shared column names** between the interval data frame and the grouping columns of the concentration object. Any column that appears in both is used as a matching key.
+
+```{r group-matching}
+data("Theoph")
+
+d_conc <- PKNCAconc(Theoph, conc ~ Time | Subject)
+
+# Intervals with a Subject column — each row applies to exactly one subject
+subject_intervals <- data.frame(
+  Subject = c("1", "2"),
+  start   = c(0, 0),
+  end     = c(24, 24),
+  auclast = TRUE
+)
+
+# Intervals without Subject — this row applies to ALL subjects (default interval)
+default_interval <- data.frame(
+  start   = 0,
+  end     = 24,
+  auclast = TRUE
+)
+```
+
+If an interval row has no group columns, it is a **default interval** and is applied to every group present in the concentration data that does not have a more specific match. This is useful when the same calculation windows apply to all subjects and analytes.
+
+---
+
+## 3. Default Intervals via `PKNCAdata()` with No `intervals` Argument
+
+When you call `PKNCAdata()` without an explicit `intervals` argument, PKNCA substitutes the built-in default single-dose intervals. These are stored in `PKNCA.options("single.dose.aucs")`:
+
+```{r default-intervals}
+PKNCA.options("single.dose.aucs")
+```
+
+The two default rows are:
+
+- **Row 1** (`end = 24`): calculates `auclast` only — the workhorse for most single-dose studies.
+- **Row 2** (`end = Inf`): calculates `cmax`, `tmax`, `tlast`, `clast.obs`, `half.life`, and `aucinf.obs` — the full single-dose parameter set.
+
+These defaults are suitable for a single-dose extravascular study with at least 24 hours of sampling. For any other design (multiple dose, IV, urine, etc.) you should supply explicit intervals.
+
+```{r use-default}
+d_dose <- PKNCAdose(
+  Theoph |> group_by(Subject) |>
+    summarise(Dose = Dose[1] * Wt[1], .groups = "drop") |>
+    mutate(Time = 0),
+  Dose ~ Time | Subject
+)
+
+# No intervals argument — uses PKNCA.options("single.dose.aucs") automatically
+d_data_default <- PKNCAdata(
+  PKNCAconc(Theoph, conc ~ Time | Subject),
+  d_dose
+)
+d_data_default$intervals
+```
+
+---
+
+## 4. Multiple Intervals per Group
+
+Each row of the interval data frame is applied **independently**. A single subject (or group) can have any number of interval rows, each with its own time window and parameter set. PKNCA applies every matching row and collects the results.
+
+```{r multiple-intervals}
+# Two windows for the same subjects:
+# 0–24 h for early exposure; 0–Inf for terminal parameters
+multi_intervals <- data.frame(
+  start      = c(0, 0),
+  end        = c(24, Inf),
+  auclast    = c(TRUE,  FALSE),
+  cmax       = c(FALSE, TRUE),
+  half.life  = c(FALSE, TRUE),
+  aucinf.obs = c(FALSE, TRUE)
+)
+multi_intervals
+```
+
+PKNCA processes each row separately: the first row restricts data to $t \in [0, 24]$ for the `auclast` calculation, while the second row uses all available data to derive terminal parameters.
+
+Overlapping intervals are allowed and do not interfere with each other.
+
+---
+
+## 5. Duration-Based Events
+
+Some sampling designs record a *duration* rather than an instantaneous sample — for example, urine collection periods or IV infusions. PKNCA tracks these via the `duration` argument in `PKNCAconc()` and `PKNCAdose()`.
+
+When a concentration object carries duration information, PKNCA selects samples for an interval based on **both the start and end of the collection period**. The collection end time must fall at or before the interval `end` for the sample to be included:
+
+```{r duration-concept, eval=FALSE}
+# Urine example: each row covers a collection period
+urine_conc <- data.frame(
+  Subject  = rep(1, 4),
+  Time     = c(0,  4,  8,  24),   # collection start times
+  duration = c(4,  4,  16, 0),    # collection lengths (hours)
+  conc     = c(0.5, 1.2, 0.9, 0.3)
+)
+
+d_urine_conc <- PKNCAconc(
+  urine_conc,
+  conc ~ Time | Subject,
+  duration = "duration"
+)
+
+# The interval end must align with a collection end time
+urine_intervals <- data.frame(
+  start    = 0,
+  end      = 24,   # matches the end of the 8-h collection (8 + 16 = 24)
+  ae       = TRUE,
+  clr.last = TRUE
+)
+```
+
+For IV infusions, `setDuration()` on the dose object sets the infusion duration, and `ceoi` (concentration at end of infusion) becomes calculable within an interval whose `end` matches the infusion end time.
+
+---
+
+## 6. Full Parameter Catalogue
+
+The complete list of calculable parameters is available programmatically via `get.interval.cols()`. Each entry carries a description, the calculation function, unit type, and dependency information.
+
+```{r param-catalogue}
+cols <- get.interval.cols()
+
+param_table <- data.frame(
+  parameter   = names(cols),
+  description = sapply(cols, function(x) x$desc),
+  stringsAsFactors = FALSE
+)
+
+# Exclude the structural columns start/end from the display
+param_table <- param_table[!param_table$parameter %in% c("start", "end"), ]
+rownames(param_table) <- NULL
+
+knitr::kable(
+  param_table,
+  col.names = c("Parameter", "Description"),
+  caption   = paste0(
+    "All ", nrow(param_table),
+    " calculable parameters in PKNCA ", packageVersion("PKNCA")
+  )
+)
+```
+
+Parameters fall into broad families:
+
+- **AUC / AUMC** — `auclast`, `aucall`, `aucinf.obs`, `aucinf.pred`, `aumclast`, and interval-restricted `aucint.*` variants
+- **Concentration** — `cmax`, `cmin`, `ctrough`, `clast.obs`, `clast.pred`, `c0`, `cstart`, `ceoi`
+- **Time** — `tmax`, `tlast`, `tfirst`, `tlag`
+- **Clearance / Volume** — `cl.obs`, `cl.pred`, `vz.obs`, `vz.pred`, `vss.obs`, `vss.iv.obs`, renal `clr.*`
+- **Elimination** — `half.life`, `lambda.z`, `lambda.z.n.points`, `span.ratio`, `r.squared`, `adj.r.squared`
+- **Excretion** — `ae`, `fe`
+- **Steady-state / MD** — `deg.fluc`, `swing`, `ptr`, `cav`, `mrt.*`, `thalf.eff.*`
+- **Sparse sampling** — `sparse_auclast`, `sparse_auc_se`, `sparse_auc_df`
+- **IV-specific** — `aucivlast`, `aucivpbext*`, `aucivinf.*`
+- **Dose-normalized** — `auclast.dn`, `cmax.dn`, and other `*.dn` variants
+
+---
+
+## 7. Checking Parameter Dependencies with `get.parameter.deps()`
+
+Some parameters depend on others being computed first. `get.parameter.deps()` returns all parameters that use a given parameter as an input:
+
+```{r param-deps}
+# Which parameters depend on auclast?
+get.parameter.deps("auclast")
+```
+
+This is useful when you enable a high-level parameter and want to know which intermediate quantities will also be computed. Dependencies are resolved automatically — you do not need to set dependency flags to `TRUE` manually.
+
+---
+
+## 8. Validating Custom Intervals with `check.interval.specification()`
+
+Before passing intervals to `PKNCAdata()`, you can validate them with `check.interval.specification()`. It verifies that all column names are recognized parameters, that `start < end`, and that logical values are used correctly.
+
+```{r check-intervals}
+# A valid interval
+valid_int <- data.frame(
+  start      = c(0, 0),
+  end        = c(24, Inf),
+  auclast    = c(TRUE, FALSE),
+  aucinf.obs = c(FALSE, TRUE),
+  cmax       = c(FALSE, TRUE)
+)
+check.interval.specification(valid_int)
+```
+
+```{r check-invalid, error=TRUE}
+# An invalid interval — start >= end
+bad_int <- data.frame(
+  start   = 24,
+  end     = 0,
+  auclast = TRUE
+)
+check.interval.specification(bad_int)
+```
+
+`check.interval.specification()` returns the interval data frame invisibly on success, making it safe to use inline before passing to `PKNCAdata()`:
+
+```{r check-inline}
+d_conc <- PKNCAconc(Theoph, conc ~ Time | Subject)
+d_dose <- PKNCAdose(
+  Theoph |> group_by(Subject) |>
+    summarise(Dose = Dose[1] * Wt[1], .groups = "drop") |>
+    mutate(Time = 0),
+  Dose ~ Time | Subject
+)
+
+my_intervals <- check.interval.specification(
+  data.frame(
+    start      = c(0, 0),
+    end        = c(24, Inf),
+    auclast    = c(TRUE, FALSE),
+    aucinf.obs = c(FALSE, TRUE),
+    cmax       = c(FALSE, TRUE),
+    half.life  = c(FALSE, TRUE)
+  )
+)
+
+d_data <- PKNCAdata(d_conc, d_dose, intervals = my_intervals)
+suppressMessages(o_nca <- pk.nca(d_data))
+as.data.frame(o_nca) |> head(8)
+```

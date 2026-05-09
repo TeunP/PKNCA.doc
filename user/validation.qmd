@@ -1,0 +1,200 @@
+---
+title: "Validation and Testing"
+---
+
+```{r setup, include=FALSE}
+library(PKNCA)
+library(dplyr)
+library(ggplot2)
+conflicted::conflicts_prefer(dplyr::filter, dplyr::select, .quiet = TRUE)
+```
+
+PKNCA ships with a comprehensive `testthat`-based test suite that covers the full calculation engine. This page explains how to access and run that suite, how to interpret results, and how to spot-check individual calculations against hand-derived values.
+
+---
+
+## 1. PKNCA's Validation Approach
+
+The validation strategy is **reproducibility-first**: re-running the test suite in your local environment and obtaining the same results as the original package development constitutes confirmation that the software is working correctly in your system.
+
+The test suite uses the [`testthat`](https://testthat.r-lib.org/) framework and targets near-complete coverage of every calculation function. Tests range from numerical spot-checks of individual PK parameters to integration tests of the full `pk.nca()` pipeline.
+
+To check whether tests were installed alongside the package:
+
+```{r test-location}
+system.file("tests", package = "PKNCA")
+```
+
+If this returns an empty string, the tests were not installed. Standard CRAN installs do not include tests by default; see Section 2 for how to install them.
+
+---
+
+## 2. Installing with Tests and Running the Suite
+
+Tests must be explicitly included at install time.
+
+**From CRAN (source install with tests):**
+
+```{r cran-install, eval=FALSE}
+install.packages(
+  pkgs         = "PKNCA",
+  INSTALL_opts = "--install-tests",
+  type         = "source"
+)
+```
+
+**From GitHub:**
+
+```{r github-install, eval=FALSE}
+if (!requireNamespace("remotes")) install.packages("remotes")
+remotes::install_github(
+  "humanpred/pknca",
+  INSTALL_opts = "--install-tests"
+)
+```
+
+**Running the test suite** once tests are installed:
+
+```{r run-tests, eval=FALSE}
+if (!requireNamespace("testthat")) install.packages("testthat")
+
+# Option A — via devtools (recommended during development)
+devtools::test(system.file(package = "PKNCA"))
+
+# Option B — via testthat directly
+testthat::test_package("PKNCA")
+
+# Option C — full R CMD CHECK (most rigorous; runs examples too)
+# From a terminal:
+# R CMD CHECK $(R -e 'cat(find.package("PKNCA"))')
+```
+
+---
+
+## 3. Interpreting Results
+
+A passing run reports the number of tests, the number of expectations checked, and zero failures. A typical run looks like:
+
+```
+[ FAIL 0 | WARN 0 | SKIP n | PASS N ]
+```
+
+- **FAIL 0** — no calculation errors; the install is valid.
+- **SKIP n** — some tests are conditionally skipped (e.g., tests that require internet access, or environment-specific checks). Skips are expected and do not indicate a problem.
+- **WARN** — warnings during tests are expected; the PKNCA validation vignette explicitly notes that warnings appear during testing and are not displayed in the published vignette.
+
+If any failures are reported, the output shows the test file, test name, and the specific expectation that failed — compare the `expected` and `actual` values to diagnose whether the issue is a platform difference or a genuine calculation error.
+
+---
+
+## 4. Checking the Installed Version
+
+Before any regulatory analysis, record the exact package version:
+
+```{r version-check}
+packageVersion("PKNCA")
+```
+
+Cite the package version in the analysis report:
+
+```{r citation}
+citation("PKNCA")
+```
+
+The canonical citation is:
+
+> Denney W, Duvvuri S, Buckeridge C (2015). "Simple, Automatic Noncompartmental Analysis: The PKNCA R Package." *Journal of Pharmacokinetics and Pharmacodynamics*, 42(1), 11-107,S65. doi:10.1007/s10928-015-9432-2
+
+---
+
+## 5. Spot-Checking a Calculation Against a Known Reference
+
+Running the full test suite confirms the package as a whole. For a targeted validation of a specific parameter, you can compute the value by hand and compare it to `pk.nca()` output.
+
+**Example: manual linear-trapezoid AUClast for Theoph Subject 1**
+
+The linear (additive) trapezoid rule is:
+
+$$\text{AUC}_{t_i \to t_{i+1}} = \frac{(t_{i+1} - t_i)(C_i + C_{i+1})}{2}$$
+
+```{r spot-check}
+data("Theoph")
+
+# Subject 1 concentration-time data
+s1 <- Theoph[Theoph$Subject == "1", c("Time", "conc")]
+s1
+
+# Manual linear-trapezoid AUClast
+# AUClast uses all data up to and including the last measurable concentration
+n <- nrow(s1)
+manual_auclast <- sum(
+  (s1$Time[2:n] - s1$Time[1:(n - 1)]) *
+    (s1$conc[2:n] + s1$conc[1:(n - 1)]) / 2
+)
+cat("Manual AUClast (linear trap):", round(manual_auclast, 3), "\n")
+```
+
+Now run `pk.nca()` and extract the same parameter:
+
+```{r pknca-auclast}
+d_conc <- PKNCAconc(Theoph, conc ~ Time | Subject)
+d_dose <- PKNCAdose(
+  Theoph |> group_by(Subject) |>
+    summarise(Dose = Dose[1] * Wt[1], .groups = "drop") |>
+    mutate(Time = 0),
+  Dose ~ Time | Subject
+)
+
+# Use a single interval that spans the full profile
+d_data <- PKNCAdata(
+  d_conc, d_dose,
+  intervals = data.frame(start = 0, end = Inf, auclast = TRUE)
+)
+suppressMessages(o_nca <- pk.nca(d_data))
+
+pknca_auclast <- as.data.frame(o_nca) |>
+  filter(Subject == "1", PPTESTCD == "auclast") |>
+  pull(PPORRES)
+
+cat("PKNCA AUClast:              ", round(pknca_auclast, 3), "\n")
+cat("Difference (manual - PKNCA):", round(manual_auclast - pknca_auclast, 6), "\n")
+```
+
+The two values should agree to numerical precision. PKNCA uses the linear-up / log-down trapezoid method by default (controlled by `PKNCA.options("auc.method")`); for an all-linear comparison, either set `PKNCA.options(auc.method = "linear")` or use only time points where the log-down rule would not apply (i.e., where concentrations are not monotonically decreasing between consecutive points).
+
+To confirm the current method:
+
+```{r auc-method}
+PKNCA.options("auc.method")
+```
+
+---
+
+## 6. Reproducibility Reporting with `sessionInfo()`
+
+Every validation run should capture the complete session environment. Record this at the end of each analysis script:
+
+```{r session-info}
+Sys.Date()
+sessionInfo()
+```
+
+`sessionInfo()` captures:
+
+- R version and platform
+- Locale and timezone
+- All attached and loaded packages with their exact versions
+- The version of PKNCA and all its dependencies
+
+For validated regulatory environments, supplement `sessionInfo()` with an `renv` lockfile:
+
+```{r renv-lock, eval=FALSE}
+# Capture the environment
+renv::snapshot()
+
+# Confirm a clean restore on the validation system
+renv::restore()
+renv::status()
+```
+
+Together, `packageVersion("PKNCA")`, `PKNCA.options()`, `sessionInfo()`, and `renv::snapshot()` provide a complete and reproducible record of the computational environment used in an NCA analysis.

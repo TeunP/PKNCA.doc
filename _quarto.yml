@@ -31,6 +31,11 @@ website:
           - user/utilities.qmd
           - user/dose-aware-interpolation.qmd
           - user/custom-parameters.qmd
+          - user/intervals.qmd
+          - user/units.qmd
+          - user/imputation.qmd
+          - user/regulatory.qmd
+          - user/validation.qmd
       - section: "Developer"
         contents:
           - dev/function-deps.qmd
