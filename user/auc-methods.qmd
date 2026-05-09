@@ -98,20 +98,23 @@ as.data.frame(o_nca_partial) |>
 | `aucint.inf.obs.dose` | Same as `.inf.obs` | **Yes** | λz-based tail |
 | `aucint.inf.pred.dose` | Same as `.inf.pred` | **Yes** | λz-based tail |
 
+> **Note:** `aucint.inf.pred` requires that `lambda.z` has been estimated (i.e., that the terminal slope is calculable from the data window).
+
 The `.dose` variants use **dose-aware interpolation** (`interp.extrap.conc.dose()`) at the interval start and end. This matters when the interval boundary coincides with a dose time — the `.dose` variant correctly handles the before/after concentration jump.
 
 ```{r}
 # All partial AUC variants over a single window
 all_partial <- data.frame(
-  start                = 0,
-  end                  = 8,
-  aucint.last          = TRUE,
-  aucint.all           = TRUE,
-  aucint.inf.obs       = TRUE,
-  aucint.inf.pred      = TRUE,
-  aucint.last.dose     = TRUE,
-  aucint.all.dose      = TRUE,
-  aucint.inf.obs.dose  = TRUE
+  start                 = 0,
+  end                   = 8,
+  aucint.last           = TRUE,
+  aucint.all            = TRUE,
+  aucint.inf.obs        = TRUE,
+  aucint.inf.pred       = TRUE,
+  aucint.last.dose      = TRUE,
+  aucint.all.dose       = TRUE,
+  aucint.inf.obs.dose   = TRUE,
+  aucint.inf.pred.dose  = TRUE
 )
 
 o_nca_all_partial <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = all_partial))

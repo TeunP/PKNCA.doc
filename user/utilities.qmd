@@ -24,15 +24,15 @@ conc <- c(0.5, 0.3, 0,    0.1, 0,    0.0, 0.02)
 time <- c(0,   1,   2,    3,   4,    5,   6   )
 
 # Drop BLQ (0) values
-clean.conc.blq(conc, time, blq.treatment = "drop")
+clean.conc.blq(conc, time, conc.blq = "drop")
 ```
 
 ```{r}
 # Replace BLQ with half the LLOQ (= 0.05 here)
-clean.conc.blq(conc, time, blq.treatment = 0.05)
+clean.conc.blq(conc, time, conc.blq = 0.05)
 ```
 
-The `blq.treatment` argument accepts:
+The `conc.blq` argument accepts:
 - `"drop"` — remove BLQ rows
 - `"keep"` — keep BLQ rows as-is
 - A number — substitute BLQ values with that number
@@ -118,8 +118,8 @@ Other direct AUC functions:
 |---|---|
 | `pk.calc.auc.last()` | AUC to last measurable concentration |
 | `pk.calc.auc.all()` | AUC to last, treating BLQ as 0 |
-| `pk.calc.aucinf.obs()` | AUC extrapolated to ∞ (observed Clast) |
-| `pk.calc.aucinf.pred()` | AUC extrapolated to ∞ (predicted Clast) |
+| `pk.calc.auc.inf.obs()` | AUC extrapolated to ∞ (observed Clast) |
+| `pk.calc.auc.inf.pred()` | AUC extrapolated to ∞ (predicted Clast) |
 
 These are the building blocks behind every AUC parameter in the registry.
 

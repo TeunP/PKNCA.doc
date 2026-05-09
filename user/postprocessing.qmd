@@ -112,28 +112,56 @@ summary(o_nca_span)
 
 PKNCA has built-in dose-normalized variants for several parameters. Request them in the interval — they are automatically computed as `parameter / dose`.
 
+All 14 available dose-normalized parameters (verified from registry):
+
+| Parameter | Normalized from |
+|---|---|
+| `auclast.dn` | `auclast` |
+| `aucall.dn` | `aucall` |
+| `aucinf.obs.dn` | `aucinf.obs` |
+| `aucinf.pred.dn` | `aucinf.pred` |
+| `aumclast.dn` | `aumclast` |
+| `aumcall.dn` | `aumcall` |
+| `aumcinf.obs.dn` | `aumcinf.obs` |
+| `aumcinf.pred.dn` | `aumcinf.pred` |
+| `cmax.dn` | `cmax` |
+| `cmin.dn` | `cmin` |
+| `clast.obs.dn` | `clast.obs` |
+| `clast.pred.dn` | `clast.pred` |
+| `cav.dn` | `cav` |
+| `ctrough.dn` | `ctrough` |
+
+Each `.dn` parameter is computed as `parameter / dose` where `dose` is the dose from the `PKNCAdose` object for that interval.
+
 ```{r}
 dn_interval <- data.frame(
-  start        = 0,
-  end          = Inf,
-  auclast      = TRUE,
-  auclast.dn   = TRUE,   # AUClast / dose
-  aucinf.obs   = TRUE,
-  aucinf.obs.dn = TRUE,  # AUCinf / dose
-  cmax         = TRUE,
-  cmax.dn      = TRUE    # Cmax / dose
+  start           = 0,
+  end             = Inf,
+  auclast         = TRUE,
+  auclast.dn      = TRUE,   # AUClast / dose
+  aucinf.obs      = TRUE,
+  aucinf.obs.dn   = TRUE,   # AUCinf.obs / dose
+  aucinf.pred.dn  = TRUE,   # AUCinf.pred / dose
+  cmax            = TRUE,
+  cmax.dn         = TRUE,   # Cmax / dose
+  cmin.dn         = TRUE,   # Cmin / dose
+  aumclast.dn     = TRUE,   # AUMClast / dose
+  clast.obs.dn    = TRUE,   # Clast.obs / dose
+  cav.dn          = TRUE,   # Cav / dose
+  half.life       = TRUE    # needed for aucinf.pred
 )
 
 o_nca_dn <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = dn_interval))
 
 as.data.frame(o_nca_dn) |>
-  filter(PPTESTCD %in% c("auclast", "auclast.dn", "cmax", "cmax.dn")) |>
+  filter(PPTESTCD %in% c("auclast", "auclast.dn", "cmax", "cmax.dn",
+                          "aucinf.obs", "aucinf.obs.dn")) |>
   select(subject, PPTESTCD, PPORRES) |>
   tidyr::pivot_wider(names_from = PPTESTCD, values_from = PPORRES) |>
   arrange(subject)
 ```
 
-All available dose-normalized parameters:
+Or retrieve the full list dynamically:
 
 ```{r}
 cols <- get.interval.cols()
