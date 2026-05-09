@@ -1,29 +1,17 @@
 ---
-title: "PKNCA Documentation"
+title: "PKNCA: Noncompartmental Analysis in R"
 ---
+
+**PKNCA** is an R package for automated noncompartmental analysis (NCA). It calculates PK parameters (AUC, Cmax, half-life, clearance, volume, and many more) from concentration-time data, supports IV and extravascular routes, urine excretion, sparse sampling, multiple-dose designs, and CDISC-aligned output. This book documents PKNCA ≥ 0.12.2 with runnable examples throughout.
 
 ## What is NCA?
 
-**Noncompartmental analysis (NCA)** is the standard method for characterizing drug exposure from concentration-time data. Unlike compartmental modeling, NCA makes no assumptions about the underlying PK model — it derives parameters directly from the observed data using numerical integration.
+**Noncompartmental analysis (NCA)** derives pharmacokinetic parameters directly from observed data using numerical integration — no compartmental model assumptions required. NCA is used to answer:
 
-NCA is used to answer questions like:
-
-- How much drug did the body absorb? → **AUC** (area under the concentration-time curve)
+- How much drug was absorbed? → **AUC**
 - How fast was drug eliminated? → **half-life**, **λz**
 - How high did concentrations get? → **Cmax**
 - How quickly was drug cleared? → **CL**, **Vz**
-
-## What is PKNCA?
-
-[PKNCA](https://github.com/humanpred/pknca) is an R package (CRAN v0.12.1) for automated NCA calculation. It is validated against Phoenix WinNonlin and Pumas.
-
-**Key design principles:**
-
-- Only gives correct answers to the specific questions being asked
-- Automates interval selection and parameter dependency resolution
-- Supports flexible grouping (subject, treatment, analyte, study)
-- Handles IV and extravascular (oral, SC, IM) routes separately
-- Built-in unit support, data imputation, and exclusion tracking
 
 ## Core Workflow
 
@@ -40,53 +28,33 @@ flowchart LR
     H --> J[as.data.frame]
 ```
 
-The four objects map naturally to the questions an analyst asks:
-
 | Object | Purpose |
 |---|---|
-| `PKNCAconc` | Where is my concentration data, and how is it structured? |
-| `PKNCAdose` | What was the dose, when, and by what route? |
-| `PKNCAdata` | What parameters do I want, over which intervals? |
-| `PKNCAresults` | Computed NCA parameters with units and metadata |
+| `PKNCAconc` | Where is concentration data; how is it grouped? |
+| `PKNCAdose` | Dose amount, time, and route |
+| `PKNCAdata` | Parameters and analysis intervals |
+| `PKNCAresults` | Computed NCA parameters, units, exclusion flags |
 
-## Route-specific guidance
-
-This documentation separates IV and extravascular workflows because the route determines which parameters are meaningful:
+## Route-specific parameters
 
 | Parameter | IV | Extravascular |
 |---|---|---|
-| C0 (extrapolated) | ✓ | — |
+| C0 (extrapolated at t=0) | ✓ | — |
 | Cmax | ✓ | ✓ |
 | Tmax | ✓ | ✓ |
 | AUClast / AUCinf | ✓ | ✓ |
 | Half-life (λz) | ✓ | ✓ |
-| CL (clearance) | ✓ | — (apparent: CL/F) |
+| CL (true clearance) | ✓ | — (apparent: CL/F) |
 | Vz (volume) | ✓ | — (apparent: Vz/F) |
 | Bioavailability (F) | reference | ✓ |
-| Ka (abs. rate) | — | ✓ (indirect) |
 
-→ [Intravascular (IV) examples](user/intravascular.qmd)
+## What's new in 0.12.2
 
-→ [Extravascular (oral/SC) examples](user/extravascular.qmd)
-
-→ [Sparse PK sampling](user/sparse.qmd)
-
-→ [AUC types and integration methods](user/auc-methods.qmd)
-
-→ [Half-life and terminal phase](user/halflife.qmd)
-
-→ [Post-processing: exclude, normalize, summarize](user/postprocessing.qmd)
-
-→ [Multiple-dose and steady-state](user/multiple-dose.qmd)
-
-→ [Urine excretion (ae, fe, CLr)](user/urine-excretion.qmd)
-
-→ [Superposition](user/superposition.qmd)
-
-→ [Time to steady state](user/tss.qmd)
-
-→ [Utility functions](user/utilities.qmd)
-
-→ [Dose-aware interpolation and extrapolation](user/dose-aware-interpolation.qmd)
-
-→ [Writing custom parameter functions](user/custom-parameters.qmd)
+- **`normalize_by_col()` / `normalize()`** — dose-normalize results using a column in the result data frame
+- **`tmin` parameter** — minimum pre-Tmax concentration
+- **Tobit regression** for half-life (now on CRAN; previously GitHub only)
+- **Sparse AUMC** and five new sparse-derived parameters (`cl.sparse.last`, `kel.sparse.last`, `mrt.ivint.last`, `vss.sparse.last`, `vz.sparse.last`)
+- **New excretion parameters**: `volpk`, `ermax`, `ertmax`, `ertlst`, dose-normalized renal clearance (`clr.*.dn`)
+- **`lambda.z.corrxy`** — correlation between x and y in the λz regression
+- **`pknca_units_table()`** is now an S3 generic with a `PKNCAdata` method
+- **`get_halflife_points()`** works directly on `PKNCAdata` objects; handles `start ≠ 0` correctly

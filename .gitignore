@@ -1,5 +1,6 @@
 # Quarto rendered output — large, reproducible from source
 _site/
+_book/
 _freeze/
 .quarto/
 

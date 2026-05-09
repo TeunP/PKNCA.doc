@@ -212,3 +212,76 @@ as.data.frame(o_nca_ae) |>
   select(Subject, PPORRES) |>
   arrange(Subject)
 ```
+
+---
+
+## New urine parameters in PKNCA ≥ 0.12.2
+
+### volpk — total collection volume
+
+`volpk` is the sum of urine volumes across all collection periods within the analysis interval. When you pass `volume = "volume"` to `PKNCAconc()`, PKNCA can compute this automatically:
+
+```{r eval=FALSE}
+vol_interval <- data.frame(
+  start  = 0,
+  end    = 24,
+  ae     = TRUE,
+  volpk  = TRUE    # sum of urine volumes over the interval
+)
+
+o_nca_vol <- pk.nca(PKNCAdata(o_conc_ur2, o_dose, intervals = vol_interval))
+as.data.frame(o_nca_vol) |>
+  filter(PPTESTCD %in% c("ae", "volpk")) |>
+  select(Subject, PPTESTCD, PPORRES)
+```
+
+### Excretion rate parameters
+
+| Parameter | Description |
+|---|---|
+| `ermax` | Maximum excretion rate (amount/time) within the interval |
+| `ertmax` | Midpoint collection time of the maximum excretion rate period |
+| `ertlst` | Midpoint collection time of the last measurable excretion rate |
+
+These mirror the plasma-side `cmax` / `tmax` / `tlast` but apply to the excretion rate (amount excreted per collection period divided by collection duration).
+
+```{r eval=FALSE}
+er_interval <- data.frame(
+  start  = 0,
+  end    = 24,
+  ae     = TRUE,
+  ermax  = TRUE,    # maximum excretion rate
+  ertmax = TRUE,    # time of maximum excretion rate
+  ertlst = TRUE     # time of last measurable excretion rate
+)
+
+o_nca_er <- pk.nca(PKNCAdata(o_conc_ur2, o_dose, intervals = er_interval))
+as.data.frame(o_nca_er) |>
+  filter(PPTESTCD %in% c("ae", "ermax", "ertmax", "ertlst")) |>
+  select(Subject, PPTESTCD, PPORRES)
+```
+
+### Dose-normalized renal clearance (≥ 0.12.2)
+
+Dose-normalized renal clearance variants are now available in the parameter registry:
+
+| Parameter | Normalized from |
+|---|---|
+| `clr.last.dn` | `clr.last / dose` |
+| `clr.obs.dn` | `clr.obs / dose` |
+| `clr.pred.dn` | `clr.pred / dose` |
+
+Request them in the interval data frame alongside their un-normalized counterparts:
+
+```{r eval=FALSE}
+dn_interval <- data.frame(
+  start        = 0,
+  end          = Inf,
+  ae           = TRUE,
+  fe           = TRUE,
+  clr.last     = TRUE,
+  clr.last.dn  = TRUE,
+  clr.obs      = TRUE,
+  clr.obs.dn   = TRUE
+)
+```

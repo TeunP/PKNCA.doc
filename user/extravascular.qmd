@@ -85,6 +85,7 @@ as.data.frame(o_nca) |>
 | `cmax` | Maximum observed concentration |
 | `tmax` | Time of Cmax |
 | `cmin` | Minimum observed concentration in the interval |
+| `tmin` | Time of the minimum observed concentration (≥ 0.12.2) |
 | `tfirst` | First time with a non-zero (non-BLQ) concentration |
 | `tlast` | Last time with a measurable concentration |
 | `clast.obs` | Observed concentration at `tlast` |
@@ -100,6 +101,7 @@ lm_interval <- data.frame(
   cmax                = TRUE,
   tmax                = TRUE,
   cmin                = TRUE,
+  tmin                = TRUE,
   tfirst              = TRUE,
   tlast               = TRUE,
   clast.obs           = TRUE,
@@ -111,7 +113,7 @@ lm_interval <- data.frame(
 o_nca_lm <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = lm_interval))
 
 as.data.frame(o_nca_lm) |>
-  filter(PPTESTCD %in% c("cmax","tmax","cmin","tfirst","tlast",
+  filter(PPTESTCD %in% c("cmax","tmax","cmin","tmin","tfirst","tlast",
                           "clast.obs","clast.pred","count_conc","count_conc_measured")) |>
   select(subject, PPTESTCD, PPORRES) |>
   arrange(subject, PPTESTCD)
@@ -119,7 +121,7 @@ as.data.frame(o_nca_lm) |>
 
 **When there are multiple peaks** (fed state, enterohepatic recirculation), the default is to return the first Tmax. Control this with `first.tmax`:
 
-> **Note:** There is no `first.tmin` option in PKNCA 0.12.1. The Cmin value returned is always the minimum concentration in the interval; tie-breaking is not configurable.
+Tie-breaking for Tmin is controlled by the `first.tmin` option (PKNCA ≥ 0.12.2, default `TRUE` = return first occurrence):
 
 ```{r}
 # Use the last Tmax when there are ties

@@ -220,3 +220,64 @@ data.frame(
   description = sapply(sparse_params, `[[`, "desc")
 ) |> knitr::kable()
 ```
+
+---
+
+## Sparse AUMC and derived parameters (≥ 0.12.2)
+
+PKNCA ≥ 0.12.2 adds sparse AUMC (area under the first-moment curve) and five new derived parameters, enabling MRT, clearance, and volume estimation from sparse data.
+
+### Sparse AUMC
+
+| Parameter | Description |
+|---|---|
+| `sparse_aumclast` | AUMC from the pooled mean sparse profile (0 → last measurable) |
+| `sparse_aumc_se` | Standard error of the sparse AUMC estimate |
+| `sparse_aumc_df` | Degrees of freedom for the AUMC variance estimate |
+
+Requesting `sparse_aumclast = TRUE` automatically computes `sparse_auclast`, `sparse_auc_se`, `sparse_auc_df`, `sparse_aumc_se`, and `sparse_aumc_df` as dependencies.
+
+```{r}
+sparse_aumc_interval <- data.frame(
+  start           = 0,
+  end             = Inf,
+  sparse_aumclast = TRUE   # AUC and SE are computed automatically as dependencies
+)
+
+o_nca_sparse_aumc <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = sparse_aumc_interval))
+
+as.data.frame(o_nca_sparse_aumc) |>
+  select(PPTESTCD, PPORRES)
+```
+
+### Sparse-derived PK parameters
+
+Once sparse AUC and AUMC are available, PKNCA can compute additional population-level parameters:
+
+| Parameter | Description |
+|---|---|
+| `mrt.sparse.last` | Mean residence time from sparse sampling |
+| `cl.sparse.last` | Clearance: dose / sparse AUClast |
+| `kel.sparse.last` | Elimination rate constant: 1 / MRT_sparse |
+| `vss.sparse.last` | Steady-state volume of distribution from sparse sampling |
+| `vz.sparse.last` | Terminal volume of distribution from sparse sampling |
+
+```{r}
+sparse_full_interval <- data.frame(
+  start           = 0,
+  end             = Inf,
+  sparse_aumclast = TRUE,   # also pulls in sparse_auclast, SE, df
+  mrt.sparse.last = TRUE,
+  cl.sparse.last  = TRUE,
+  kel.sparse.last = TRUE
+)
+
+o_nca_sparse_full <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = sparse_full_interval))
+
+as.data.frame(o_nca_sparse_full) |>
+  filter(PPTESTCD %in% c("sparse_auclast", "sparse_aumclast",
+                          "mrt.sparse.last", "cl.sparse.last", "kel.sparse.last")) |>
+  select(PPTESTCD, PPORRES)
+```
+
+> `vss.sparse.last` and `vz.sparse.last` require a terminal elimination estimate (λz) which cannot be derived from the pooled mean sparse profile alone; they return `NA` unless additional terminal-phase information is available.

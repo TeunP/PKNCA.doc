@@ -86,14 +86,32 @@ o_conc_col <- PKNCAconc(Theoph_units, conc ~ Time | Subject,
 This function builds a complete mapping from every NCA parameter to its
 reporting unit, derived from the four base units you supply.
 
-### Arguments
+In PKNCA ≥ 0.12.2, `pknca_units_table()` is an **S3 generic**. The most useful new method is `pknca_units_table.PKNCAdata()`, which extracts units directly from a fully assembled `PKNCAdata` object — useful when units are already embedded in `PKNCAconc` and `PKNCAdose`:
 
-```r
-args(pknca_units_table)
-# function(concu, doseu, amountu, timeu,
-#          concu_pref = NULL, doseu_pref = NULL,
-#          amountu_pref = NULL, timeu_pref = NULL,
-#          conversions = data.frame())
+```{r}
+# Units already embedded in the data objects
+o_conc_u <- PKNCAconc(as.data.frame(Theoph) |> dplyr::rename(time=Time, subject=Subject),
+                       conc ~ time | subject, concu = "mg/L", timeu = "h")
+o_dose_u <- PKNCAdose(
+  as.data.frame(Theoph) |>
+    dplyr::group_by(Subject) |>
+    dplyr::summarise(dose = Dose[1]*Wt[1], .groups="drop") |>
+    dplyr::rename(subject=Subject) |>
+    dplyr::mutate(time = 0),
+  dose ~ time | subject, route = "extravascular",
+  doseu = "mg", timeu = "h"
+)
+o_data_u <- PKNCAdata(o_conc_u, o_dose_u)
+
+# Extract units from the PKNCAdata object (≥ 0.12.2)
+u_from_data <- pknca_units_table(o_data_u)
+head(u_from_data, 6)
+```
+
+### Arguments (default method)
+
+```{r}
+args(getS3method("pknca_units_table", "default"))
 ```
 
 All four of `concu`, `doseu`, `amountu`, `timeu` are required. PKNCA derives
@@ -266,3 +284,5 @@ df_all |>
 | Convert to preferred output units | Add `concu_pref`, `timeu_pref`, etc. to `pknca_units_table()` |
 | Custom / non-metric conversions | `conversions` argument in `pknca_units_table()` |
 | Inspect units in results | `as.data.frame(res)$PPORRESU` |
+| Extract units from a PKNCAdata object (≥ 0.12.2) | `pknca_units_table(o_data)` |
+| Allow some parameters without units (≥ 0.12.2) | `PKNCA.options(allow_partial_missing_units = TRUE)` |

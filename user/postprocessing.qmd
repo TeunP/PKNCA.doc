@@ -112,28 +112,48 @@ summary(o_nca_span)
 
 PKNCA has built-in dose-normalized variants for several parameters. Request them in the interval — they are automatically computed as `parameter / dose`.
 
-All 14 available dose-normalized parameters (verified from registry):
+All available dose-normalized parameters (retrieved dynamically from registry):
 
-| Parameter | Normalized from |
-|---|---|
-| `auclast.dn` | `auclast` |
-| `aucall.dn` | `aucall` |
-| `aucinf.obs.dn` | `aucinf.obs` |
-| `aucinf.pred.dn` | `aucinf.pred` |
-| `aumclast.dn` | `aumclast` |
-| `aumcall.dn` | `aumcall` |
-| `aumcinf.obs.dn` | `aumcinf.obs` |
-| `aumcinf.pred.dn` | `aumcinf.pred` |
-| `cmax.dn` | `cmax` |
-| `cmin.dn` | `cmin` |
-| `clast.obs.dn` | `clast.obs` |
-| `clast.pred.dn` | `clast.pred` |
-| `cav.dn` | `cav` |
-| `ctrough.dn` | `ctrough` |
+```{r}
+cols <- get.interval.cols()
+dn_params <- names(cols)[endsWith(names(cols), ".dn")]
+data.frame(
+  parameter       = dn_params,
+  description     = sapply(cols[dn_params], function(x) x$desc),
+  normalized_from = sub("\\.dn$", "", dn_params)
+) |> knitr::kable()
+```
 
-Each `.dn` parameter is computed as `parameter / dose` where `dose` is the dose from the `PKNCAdose` object for that interval.
+Each `.dn` parameter is computed as `parameter / dose` where `dose` is the dose from the `PKNCAdose` object for that interval. In PKNCA ≥ 0.12.2 this includes renal clearance variants (`clr.last.dn`, `clr.obs.dn`, `clr.pred.dn`).
 
-> **Note:** Some versions of PKNCA (GitHub development) include `normalize_by_col()` for normalizing by arbitrary columns (e.g., body weight). This function is not present in PKNCA 0.12.1 on CRAN. Use the `.dn` dose-normalized variants (documented above) for dose normalization, or compute additional normalizations manually from `as.data.frame()` results.
+### Custom normalization with `normalize()` (≥ 0.12.2)
+
+For normalization by columns other than dose (e.g., body weight, body surface area), PKNCA 0.12.2 adds `normalize()`. You supply a `norm_table` data frame containing the grouping columns, a `normalization` value, and a `unit` for each group:
+
+```{r}
+# Normalize AUClast and Cmax by body weight
+norm_tbl <- as.data.frame(Theoph) |>
+  group_by(Subject) |>
+  summarise(normalization = Wt[1], unit = "kg", .groups = "drop") |>
+  rename(subject = Subject)
+
+df_results <- as.data.frame(o_nca)
+df_bw_norm <- normalize(
+  df_results,
+  norm_table  = norm_tbl,
+  parameters  = c("auclast", "cmax"),
+  suffix      = ".bw"
+)
+
+df_bw_norm |>
+  select(subject, PPTESTCD, PPORRES) |>
+  arrange(subject, PPTESTCD) |>
+  head(8)
+```
+
+> `normalize()` **replaces** the specified parameters in the result — `auclast` becomes `auclast.bw`, `cmax` becomes `cmax.bw`. To keep both original and normalized values, run `normalize()` on a copy and then `bind_rows()`.
+
+`normalize_by_col()` is the low-level variant that pulls normalization values from a column already present in the `PKNCAconc` data frame, rather than from a separate table.
 
 ```{r}
 dn_interval <- data.frame(
@@ -161,17 +181,6 @@ as.data.frame(o_nca_dn) |>
   select(subject, PPTESTCD, PPORRES) |>
   tidyr::pivot_wider(names_from = PPTESTCD, values_from = PPORRES) |>
   arrange(subject)
-```
-
-Or retrieve the full list dynamically:
-
-```{r}
-cols <- get.interval.cols()
-dn_params <- names(cols)[endsWith(names(cols), ".dn")]
-data.frame(
-  parameter       = dn_params,
-  normalized_from = sub("\\.dn$", "", dn_params)
-) |> knitr::kable()
 ```
 
 ---
@@ -287,7 +296,7 @@ PKNCA.set.summary(
 
 ## Inspecting the terminal regression window
 
-`get_halflife_points()` returns a logical vector aligned with the original concentration data — `TRUE` if that observation was used in the λz regression, `FALSE` if it was available but excluded, `NA` if half-life was not computed for that interval.
+`get_halflife_points()` returns a logical vector aligned with the original concentration data — `TRUE` if that observation was used in the λz regression, `FALSE` if it was available but excluded, `NA` if half-life was not computed for that interval. In PKNCA ≥ 0.12.2 it also accepts a `PKNCAdata` object directly and handles `start ≠ 0` intervals correctly.
 
 ```{r}
 d_conc_pp <- as.data.frame(Theoph) |> rename(time = Time, subject = Subject)

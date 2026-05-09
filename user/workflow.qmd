@@ -162,8 +162,9 @@ All options and what they control:
 | `adj.r.squared.factor` | `0.0001` | Selection tolerance: the longest regression window whose adj.R² is within this value of the best adj.R² is chosen (favours more points when fits are nearly equal) |
 | `min.span.ratio` | `2` | Minimum ratio of time span to half-life; rejects regressions over too short a window |
 | `allow.tmax.in.half.life` | `FALSE` | Allow Tmax timepoint in λz regression |
-| `hl_method` | `"log-linear"` | `"log-linear"` or `"tobit"` — **not in CRAN 0.12.1, requires GitHub version** |
-| `tobit_n_points_penalty` | `0` | Extra penalty per point in tobit — **GitHub version only** |
+| `hl_method` | `"log-linear"` | `"log-linear"` (OLS) or `"tobit"` (censored-likelihood, ≥ 0.12.2) |
+| `tobit_n_points_penalty` | `0` | Penalty per extra terminal point in Tobit log-likelihood; positive values favour shorter windows |
+| `tobit_optim_control` | `list()` | Control list forwarded to `stats::optim()` for Tobit optimisation |
 
 **AUCinf extrapolation**
 
@@ -183,6 +184,7 @@ All options and what they control:
 | Option | Default | Effect |
 |---|---|---|
 | `first.tmax` | `TRUE` | `TRUE` = return first Tmax when tied; `FALSE` = return last |
+| `first.tmin` | `TRUE` | `TRUE` = return first Tmin when tied; `FALSE` = return last |
 
 **Summary / output**
 

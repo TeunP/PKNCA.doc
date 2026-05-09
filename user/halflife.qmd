@@ -214,11 +214,7 @@ as.data.frame(o_nca_incl) |>
 
 ## Tobit regression for BLQ-heavy data
 
-> **Version note:** The Tobit method (`hl_method = "tobit"`) and the associated option `tobit_n_points_penalty` are **not available in PKNCA 0.12.1 (current CRAN)**. They were introduced in a later development version on GitHub. The section below documents the method conceptually and describes the GitHub API. To verify on your installation:
->
-> ```r
-> "hl_method" %in% names(PKNCA.options())  # FALSE in 0.12.1
-> ```
+Available in PKNCA ≥ 0.12.2 (now on CRAN).
 
 ### Why Tobit?
 
@@ -247,30 +243,78 @@ Tobit regression is most beneficial when:
 - **Pediatric or geriatric studies** with limited sampling windows, where sparse late-time samples are often at or near the LLOQ.
 - The terminal slope is important for downstream parameters (AUC extrapolation, mean residence time) and precision matters for regulatory submissions.
 
-### GitHub development version API
+### Using Tobit (PKNCA ≥ 0.12.2)
 
-In the GitHub version of PKNCA, Tobit is accessed via the `options` argument to `PKNCAdata()`:
+Tobit is available by calling `pk.calc.half.life()` directly. Supply the full concentration-time vector and the LLOQ for each timepoint:
 
-```r
-# Development version only — not available in PKNCA 0.12.1
-o_data_tobit <- PKNCAdata(
-  o_conc, o_dose,
-  intervals = data.frame(start = 0, end = Inf, half.life = TRUE),
-  options = list(hl_method = "tobit")
+```{r}
+# Simulated profile — concentrations at 16h and 24h are below the LLOQ of 0.1 mg/L
+conc_tobit <- c(0, 2.5, 4.8, 4.2, 2.9, 1.4, 0.6, 0.05, 0.01)
+time_tobit <- c(0, 0.5,   1,   2,   4,   8,  12,  16,  24)
+lloq_tobit <- rep(0.1, length(conc_tobit))   # scalar lloq applied to all timepoints
+
+# OLS reference
+hl_ols   <- pk.calc.half.life(conc = conc_tobit, time = time_tobit, tmax = 1,
+                               tlast = 24, hl_method = "log-linear")
+
+# Tobit — includes the BLQ observations as left-censored at lloq
+hl_tobit <- pk.calc.half.life(conc = conc_tobit, time = time_tobit, tmax = 1,
+                               tlast = 24, lloq = lloq_tobit, hl_method = "tobit")
+
+# Compare
+data.frame(
+  method    = c("log-linear", "tobit"),
+  lambda.z  = c(hl_ols$lambda.z,  hl_tobit$lambda.z),
+  half.life = c(hl_ols$half.life, hl_tobit$half.life),
+  n.points  = c(hl_ols$lambda.z.n.points, hl_tobit$lambda.z.n.points)
 )
 ```
 
-The LLOQ threshold is set through the `conc.blq` argument on `PKNCAconc()`. Observations flagged as BLQ are treated as censored at that threshold rather than as measured values.
+> **Note:** Passing `hl_method = "tobit"` through the `pk.nca()` pipeline (via `PKNCAdata(options=...)`) also requires the LLOQ to be wired through from the concentration data, which is tracked for a future PKNCA update. For full pipeline support, use `hl_method = "log-linear"` (default) and call `pk.calc.half.life()` with `hl_method = "tobit"` directly for targeted analyses.
 
-Additional options available in the development version:
+Tobit adds new output columns to the result:
+
+| Parameter | Description |
+|---|---|
+| `lambda.z.n.points_blq` | Number of BLQ points included in the Tobit regression |
+| `tobit_residual` | Sum of squared Tobit residuals for the selected window |
+| `adj_tobit_residual` | Adjusted Tobit residual (analogous to adjusted R²) |
+
+### Tobit-related options
 
 | Option | Default | Effect |
 |---|---|---|
-| `hl_method` | `"log-linear"` | `"log-linear"` (OLS) or `"tobit"` (censored likelihood) |
-| `tobit_n_points_penalty` | `0` | Penalty added to the log-likelihood per extra terminal point; positive values favour shorter windows |
+| `hl_method` | `"log-linear"` | `"log-linear"` (OLS) or `"tobit"` (censored-likelihood regression) |
+| `tobit_n_points_penalty` | `0` | Penalty per extra terminal point in the log-likelihood; positive values favour shorter windows |
 | `tobit_optim_control` | `list()` | Control list forwarded to `stats::optim()` for the Tobit optimisation |
 
-See `vignette("v06-half-life-calculation-tobit", package = "PKNCA")` (development version) for a detailed simulation comparison between OLS and Tobit estimates.
+See `vignette("v06-half-life-calculation-tobit", package = "PKNCA")` for a detailed simulation comparison between OLS and Tobit estimates.
+
+---
+
+## lambda.z.corrxy — regression correlation
+
+`lambda.z.corrxy` (available in PKNCA ≥ 0.12.2) returns the Pearson correlation between time and log-concentration for the points used in the λz regression. It is a unitless diagnostic — values close to −1 indicate a strong, clean terminal slope.
+
+```{r}
+hl_corrxy_interval <- data.frame(
+  start              = 0,
+  end                = Inf,
+  half.life          = TRUE,
+  lambda.z           = TRUE,
+  lambda.z.corrxy    = TRUE,
+  r.squared          = TRUE,
+  adj.r.squared      = TRUE
+)
+
+o_nca_corrxy <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = hl_corrxy_interval))
+
+as.data.frame(o_nca_corrxy) |>
+  filter(PPTESTCD %in% c("half.life", "lambda.z.corrxy", "r.squared", "adj.r.squared")) |>
+  select(subject, PPTESTCD, PPORRES) |>
+  tidyr::pivot_wider(names_from = PPTESTCD, values_from = PPORRES) |>
+  arrange(subject)
+```
 
 ---
 

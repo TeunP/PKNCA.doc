@@ -69,7 +69,8 @@ iv_intervals <- data.frame(
   lambda.z    = TRUE,
   cl.obs      = TRUE,
   vz.obs      = TRUE,
-  mrt.iv.last = TRUE
+  mrt.iv.last = TRUE,
+  mrt.iv.obs  = TRUE
 )
 
 o_data <- PKNCAdata(o_conc, o_dose, intervals = iv_intervals, impute = "start_conc0")
@@ -412,10 +413,15 @@ as.data.frame(o_nca_auciv) |>
 
 ## IV infusion (non-bolus)
 
-For IV infusions, supply `duration` (infusion duration in time units) or `rate` in `PKNCAdose`:
+For IV infusions, tell PKNCA the infusion duration via a `duration` column in the dose data frame and the `duration` argument to `PKNCAdose()`. PKNCA then:
+
+- Interpolates the concentration **at end of infusion** (`ceoi`) from the surrounding measured timepoints
+- Applies the IV correction to MRT: `MRT_infusion = AUMC/AUC − duration/2`
+
+The Indomethacin dataset is IV bolus, but we can re-label the dose as a 30-minute (0.5 h) infusion to illustrate the workflow. The concentration data are unchanged; only the dose metadata differs.
 
 ```{r}
-# Simulate: same dose but given as 30-minute infusion
+# Re-label the bolus dose as a 30-minute infusion
 d_dose_inf <- d_dose |>
   mutate(duration = 0.5)  # 0.5 hours = 30 min
 
@@ -423,11 +429,47 @@ o_dose_inf <- PKNCAdose(
   d_dose_inf,
   dose ~ time | Subject,
   route    = "intravascular",
-  duration = "duration"   # column name
+  duration = "duration"   # column name in d_dose_inf
 )
 ```
 
-> For infusions, PKNCA adjusts the MRT calculation: MRT_infusion = MRT_bolus + Duration/2.
+### Infusion-specific parameter: `ceoi`
+
+`ceoi` is the concentration at the **end of infusion** — the PK analogue of Cmax for extravascular routes. PKNCA interpolates it from the surrounding observed timepoints using the current AUC method.
+
+```{r}
+inf_intervals <- data.frame(
+  start      = 0,
+  end        = Inf,
+  ceoi       = TRUE,    # concentration at end of infusion (interpolated)
+  auclast    = TRUE,
+  aucinf.obs = TRUE,
+  half.life  = TRUE,
+  cl.obs     = TRUE,
+  mrt.iv.obs = TRUE     # MRT with infusion duration correction
+)
+
+o_data_inf <- PKNCAdata(o_conc, o_dose_inf, intervals = inf_intervals,
+                         impute = "start_conc0")
+o_nca_inf  <- pk.nca(o_data_inf)
+
+as.data.frame(o_nca_inf) |>
+  filter(PPTESTCD %in% c("ceoi", "auclast", "aucinf.obs",
+                          "half.life", "cl.obs", "mrt.iv.obs")) |>
+  select(Subject, PPTESTCD, PPORRES) |>
+  tidyr::pivot_wider(names_from = PPTESTCD, values_from = PPORRES) |>
+  arrange(Subject)
+```
+
+### MRT correction for infusions
+
+The `mrt.iv.*` parameters subtract `duration/2` from the raw `AUMC/AUC` ratio:
+
+$$\text{MRT}_{IV} = \frac{\text{AUMC}}{\text{AUC}} - \frac{\text{duration}}{2}$$
+
+For an IV bolus (`duration = 0`) the correction is zero. For a 0.5 h infusion, the correction is 0.25 h. When early samples fall within the infusion window the correction may differ slightly from the nominal `duration/2` due to the way PKNCA handles within-infusion timepoints in the AUMC calculation.
+
+Use `mrt.iv.obs` (extrapolated to ∞) when the terminal phase is well characterised and `mrt.iv.last` (to last measurable) otherwise.
 
 ---
 

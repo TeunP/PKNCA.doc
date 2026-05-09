@@ -1,45 +1,42 @@
 project:
-  type: website
-  output-dir: _site
+  type: book
+  output-dir: _book
 
-website:
-  title: "PKNCA Documentation"
-  description: "User and developer reference for the PKNCA R package"
-  navbar:
-    left:
-      - href: index.qmd
-        text: Overview
-    right:
-      - icon: github
-        href: https://github.com/humanpred/pknca
-  sidebar:
-    style: docked
-    contents:
-      - section: "User Guide"
-        contents:
-          - user/workflow.qmd
-          - user/intravascular.qmd
-          - user/extravascular.qmd
-          - user/sparse.qmd
-          - user/auc-methods.qmd
-          - user/halflife.qmd
-          - user/postprocessing.qmd
-          - user/multiple-dose.qmd
-          - user/urine-excretion.qmd
-          - user/superposition.qmd
-          - user/tss.qmd
-          - user/utilities.qmd
-          - user/dose-aware-interpolation.qmd
-          - user/custom-parameters.qmd
-          - user/intervals.qmd
-          - user/units.qmd
-          - user/imputation.qmd
-          - user/regulatory.qmd
-          - user/validation.qmd
-      - section: "Developer"
-        contents:
-          - dev/function-deps.qmd
-          - dev/architecture.qmd
+book:
+  title: "PKNCA: Noncompartmental Analysis in R"
+  author: "PKNCA Community"
+  date: today
+  description: "A comprehensive guide to the PKNCA R package (≥ 0.12.2) — covering every function, parameter, and workflow with runnable examples."
+  repo-url: https://github.com/humanpred/pknca
+  repo-actions: [issue]
+  favicon: ""
+  chapters:
+    - index.qmd
+    - part: "User Guide"
+      chapters:
+        - user/workflow.qmd
+        - user/intervals.qmd
+        - user/auc-methods.qmd
+        - user/halflife.qmd
+        - user/extravascular.qmd
+        - user/intravascular.qmd
+        - user/multiple-dose.qmd
+        - user/urine-excretion.qmd
+        - user/sparse.qmd
+        - user/superposition.qmd
+        - user/tss.qmd
+        - user/postprocessing.qmd
+        - user/units.qmd
+        - user/imputation.qmd
+        - user/dose-aware-interpolation.qmd
+        - user/custom-parameters.qmd
+        - user/utilities.qmd
+        - user/regulatory.qmd
+        - user/validation.qmd
+    - part: "Developer Reference"
+      chapters:
+        - dev/function-deps.qmd
+        - dev/architecture.qmd
 
 format:
   html:
