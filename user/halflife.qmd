@@ -75,19 +75,20 @@ as.data.frame(o_nca) |>
 | `lambda.z.n.points` | Number of points used in the selected regression |
 | `lambda.z.time.first` | First timepoint included in the regression window |
 | `r.squared` / `adj.r.squared` | Fit quality of the selected regression |
-| `span.ratio` | (tlast − lambda.z.time.first) / half.life — must be ≥ `min.span.ratio` |
+| `span.ratio` | (lambda.z.time.last − lambda.z.time.first) / half.life — post-hoc quality flag |
 
 ---
 
 ## Quality filters
 
-Four quality filters must all pass for a half-life to be accepted. Fail any one and the result is `NA`.
+PKNCA applies one filter **during fitting** and exposes additional parameters you use to flag or exclude results **after fitting** with `exclude()`.
 
-### 1. Minimum number of points
+> **Important distinction:** Only `min.hl.points` is enforced inside `pk.calc.half.life()` — too few points returns `half.life = NA` immediately. `min.hl.r.squared` and `min.span.ratio` are **not** consulted during fitting; they are thresholds for `exclude()` calls after `pk.nca()`.
+
+### 1. Minimum number of points (enforced during fitting)
 
 ```{r}
-# Default: 3 points minimum
-# Raise to require stronger evidence
+# Default: 3 points minimum — the only filter that makes half.life NA during pk.nca()
 o_data_4pts <- PKNCAdata(o_conc, o_dose, intervals = hl_interval,
                           options = list(min.hl.points = 4))
 o_nca_4pts  <- pk.nca(o_data_4pts)
@@ -99,32 +100,43 @@ as.data.frame(o_nca_4pts) |>
   arrange(subject)
 ```
 
-### 2. Minimum adjusted R²
+### 2. R² threshold (post-hoc exclusion via `exclude()`)
+
+`min.hl.r.squared` sets the minimum **unadjusted R²** threshold. It has no effect during `pk.nca()`; use it with `exclude_nca_min.hl.r.squared()` after fitting:
 
 ```{r}
-# Default 0.9 — raise to 0.95 for stricter acceptance
-o_data_r2 <- PKNCAdata(o_conc, o_dose, intervals = hl_interval,
-                        options = list(min.hl.r.squared = 0.95))
-o_nca_r2  <- pk.nca(o_data_r2)
+# Compute half-life for all subjects
+o_nca_r2 <- pk.nca(PKNCAdata(o_conc, o_dose, intervals = hl_interval))
 
-as.data.frame(o_nca_r2) |>
-  filter(PPTESTCD %in% c("half.life", "adj.r.squared")) |>
+# Then flag results with unadjusted R² < 0.95
+o_nca_r2_excl <- exclude(
+  o_nca_r2,
+  reason = "r.squared < 0.95",
+  FUN    = exclude_nca_min.hl.r.squared(0.95)
+)
+
+as.data.frame(o_nca_r2_excl) |>
+  filter(PPTESTCD %in% c("half.life", "r.squared")) |>
   select(subject, PPTESTCD, PPORRES) |>
   tidyr::pivot_wider(names_from = PPTESTCD, values_from = PPORRES) |>
   arrange(subject)
 ```
 
-### 3. Span ratio
+For the stricter **adjusted R²** filter: `exclude_nca_min.hl.adj.r.squared(min)`.
 
-The time span of the regression window must be at least `min.span.ratio × half.life` (default: 2). This prevents accepting a regression over too narrow a window relative to the half-life being estimated.
+### 3. Span ratio threshold (post-hoc exclusion via `exclude()`)
+
+`min.span.ratio` has no effect during `pk.nca()`; use it with `exclude_nca_span.ratio()`:
 
 ```{r}
-# Relax span ratio — useful when sampling is sparse
-o_data_span <- PKNCAdata(o_conc, o_dose, intervals = hl_interval,
-                          options = list(min.span.ratio = 1))
-o_nca_span  <- pk.nca(o_data_span)
+# Flag half-lives with span.ratio < 2
+o_nca_span_excl <- exclude(
+  o_nca_r2,
+  reason = "span.ratio < 2",
+  FUN    = exclude_nca_span.ratio(2)
+)
 
-as.data.frame(o_nca_span) |>
+as.data.frame(o_nca_span_excl) |>
   filter(PPTESTCD %in% c("half.life", "span.ratio")) |>
   select(subject, PPTESTCD, PPORRES) |>
   tidyr::pivot_wider(names_from = PPTESTCD, values_from = PPORRES) |>

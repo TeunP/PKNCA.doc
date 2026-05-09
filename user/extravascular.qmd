@@ -119,7 +119,7 @@ as.data.frame(o_nca_lm) |>
 
 **When there are multiple peaks** (fed state, enterohepatic recirculation), the default is to return the first Tmax. Control this with `first.tmax`:
 
-> **`first.tmin`** works the same way for the minimum concentration: `options = list(first.tmin = TRUE)` returns the first occurrence of Cmin; `FALSE` returns the last.
+> **Note:** There is no `first.tmin` option in PKNCA 0.12.1. The Cmin value returned is always the minimum concentration in the interval; tie-breaking is not configurable.
 
 ```{r}
 # Use the last Tmax when there are ties
@@ -299,9 +299,9 @@ All extravascular effective half-life and elimination rate constant variants:
 | `thalf.eff.last` | `mrt.last` |
 | `thalf.eff.obs` | `mrt.obs` |
 | `thalf.eff.pred` | `mrt.pred` |
-| `kel.obs` | λz (from half-life fit, observed) |
-| `kel.pred` | λz (from half-life fit, predicted Clast) |
-| `kel.last` | λz (last window only) |
+| `kel.obs` | 1 / `mrt.obs` |
+| `kel.pred` | 1 / `mrt.pred` |
+| `kel.last` | 1 / `mrt.last` |
 
 ```{r}
 eff_params <- data.frame(

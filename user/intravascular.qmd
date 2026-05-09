@@ -320,23 +320,23 @@ as.data.frame(o_nca_mrt) |>
 
 **Effective half-life** (`thalf.eff`) is derived from MRT rather than from the terminal regression: `thalf.eff = ln(2) × MRT`. It reflects the half-life that would produce the same accumulation as the observed MRT, useful for multiple-dose design.
 
-**kel** is the elimination rate constant — equivalent to λz but named differently in some regulatory contexts.
+**kel** in PKNCA is computed as `1 / MRT`, **not** as λz (the terminal slope from the half-life regression). `kel` and `lambda.z` answer different questions: `lambda.z` is the terminal log-linear slope; `kel` is the MRT-derived rate constant used for multiple-dose accumulation calculations.
 
 All variants:
 
-| Parameter | Based on |
-|---|---|
-| `thalf.eff.iv.last` | `mrt.iv.last` |
-| `thalf.eff.iv.obs` | `mrt.iv.obs` |
-| `thalf.eff.iv.pred` | `mrt.iv.pred` |
-| `thalf.eff.last` | `mrt.last` |
-| `thalf.eff.obs` | `mrt.obs` |
-| `kel.obs` | λz (observed) |
-| `kel.pred` | λz (predicted Clast) |
-| `kel.last` | λz (last time window) |
-| `kel.iv.obs` | IV-specific kel, observed |
-| `kel.iv.pred` | IV-specific kel, predicted |
-| `kel.iv.last` | IV-specific kel, last window |
+| Parameter | Formula | Based on |
+|---|---|---|
+| `thalf.eff.iv.last` | ln(2) × MRT | `mrt.iv.last` |
+| `thalf.eff.iv.obs` | ln(2) × MRT | `mrt.iv.obs` |
+| `thalf.eff.iv.pred` | ln(2) × MRT | `mrt.iv.pred` |
+| `thalf.eff.last` | ln(2) × MRT | `mrt.last` |
+| `thalf.eff.obs` | ln(2) × MRT | `mrt.obs` |
+| `kel.obs` | 1 / MRT | `mrt.obs` |
+| `kel.pred` | 1 / MRT | `mrt.pred` |
+| `kel.last` | 1 / MRT | `mrt.last` |
+| `kel.iv.obs` | 1 / MRT | `mrt.iv.obs` |
+| `kel.iv.pred` | 1 / MRT | `mrt.iv.pred` |
+| `kel.iv.last` | 1 / MRT | `mrt.iv.last` |
 
 ```{r}
 eff_params <- data.frame(
