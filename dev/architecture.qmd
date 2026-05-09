@@ -171,4 +171,4 @@ Sparse PK (one or two samples per subject, common in preclinical or paediatric s
 
 ---
 
-> **Depth note (for Teun):** This overview covers the surface. The formalsmap system, business rules (`002-pk.business.rules.R`), and the validation framework (`v60-PKNCA-validation.Rmd`) are richer topics — revisit when needed.
+> This overview covers the surface. The formalsmap system, business rules (`002-pk.business.rules.R`), and the validation framework (`v60-PKNCA-validation.Rmd`) are richer topics worth exploring further.
