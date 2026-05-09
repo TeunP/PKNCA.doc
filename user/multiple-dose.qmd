@@ -16,12 +16,13 @@ At steady state, the dosing interval τ (tau) is the key unit of analysis. Inste
 | Term | Meaning |
 |---|---|
 | τ (tau) | Dosing interval (h) |
-| Cmin / Ctrough | Concentration at end of τ (= start of next dose) |
+| Ctrough | Concentration at end of τ (= concentration at `time = end` of interval) |
+| Cmin | Minimum observed concentration within τ |
 | Cmax | Peak concentration within τ |
 | Cav | Average concentration over τ = AUCτ / τ |
-| Peak-trough ratio (PTR) | Cmax / Cmin |
-| Degree of fluctuation | (Cmax − Cmin) / Cav |
-| Swing | (Cmax − Cmin) / Cmin |
+| Peak-trough ratio (PTR) | Cmax / Ctrough |
+| Degree of fluctuation | (Cmax − Cmin) / Cav × 100% |
+| Swing | (Cmax − Cmin) / Cmin × 100% |
 
 ---
 

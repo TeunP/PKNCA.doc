@@ -66,8 +66,8 @@ PKNCA provides ready-made rule functions to pass to `exclude(FUN=...)`:
 | Function | Excludes when... |
 |---|---|
 | `exclude_nca_span.ratio(min)` | span.ratio < min |
-| `exclude_nca_min.hl.r.squared(min)` | half-life adj.R² < min |
-| `exclude_nca_min.hl.adj.r.squared(min)` | adjusted R² < min (stricter) |
+| `exclude_nca_min.hl.r.squared(min)` | half-life unadjusted R² < min |
+| `exclude_nca_min.hl.adj.r.squared(min)` | half-life adjusted R² < min (stricter, accounts for number of points) |
 | `exclude_nca_max.aucinf.pext(max)` | %AUCextrap > max |
 | `exclude_nca_tmax_0()` | Tmax = 0 (no absorption observed) |
 | `exclude_nca_tmax_early()` | Tmax is at first timepoint |
@@ -227,8 +227,8 @@ Restore to default (geometric mean ± geometric CV%):
 PKNCA.set.summary(
   "auclast",
   description = "geometric mean [geometric CV%]",
-  point  = PKNCA:::geomean,
-  spread = PKNCA:::geocv
+  point  = PKNCA::geomean,
+  spread = PKNCA::geocv
 )
 
 PKNCA.set.summary(

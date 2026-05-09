@@ -293,7 +293,7 @@ All MRT variants for IV:
 | `mrt.obs` | MRT extrapolated to ∞, observed Clast (no IV correction) |
 | `mrt.pred` | MRT extrapolated to ∞, predicted Clast (no IV correction) |
 
-The IV-corrected variants (`mrt.iv.*`) subtract τ/2 from the MRT to account for the bolus injection: MRT_IV = AUMC/AUC − 0 (for bolus). The non-IV variants (`mrt.*`) use the raw AUMC/AUC ratio.
+The IV-corrected variants (`mrt.iv.*`) subtract half the infusion duration from the raw MRT: `MRT_IV = AUMC/AUC − duration/2`. For an IV bolus (duration = 0) the correction is zero; for a 0.5 h infusion the correction is 0.25 h. The non-IV variants (`mrt.*`) use the raw AUMC/AUC ratio without any duration correction.
 
 ```{r}
 mrt_params <- data.frame(
@@ -468,7 +468,7 @@ units_table <- pknca_units_table(
 
 o_conc_u <- PKNCAconc(d_conc, conc ~ time | Subject, concu = "mcg/mL", timeu = "h")
 o_dose_u <- PKNCAdose(d_dose, dose ~ time | Subject, route = "intravascular",
-                      doseu = "mg", timeu = "h")
+                      doseu = "mg")
 o_data_u <- PKNCAdata(o_conc_u, o_dose_u, intervals = iv_intervals, units = units_table,
                      impute = "start_conc0")
 o_nca_u  <- pk.nca(o_data_u)

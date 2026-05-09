@@ -22,19 +22,20 @@ o_dose <- PKNCAdose(d_dose, dose ~ time | subject, route = "extravascular")
 
 PKNCA uses **curve stripping**: it systematically evaluates all possible subsets of terminal-phase points (from 3 points up to the full tail), fits log-linear regression to each subset, and selects the best fit based on adjusted R².
 
-The selection criterion:
-$$\text{adj.} R^2_{\text{adj}} = R^2 - \text{adj.r.squared.factor} \times n_{\text{points}}$$
+The selection criterion uses a **tolerance window**: among all subsets that pass quality filters, PKNCA picks the one with the **most points** whose adjusted R² is within `adj.r.squared.factor` of the best adjusted R²:
 
-The subset with the highest adjusted R² wins. The small penalty per point (`adj.r.squared.factor`, default 0.0001) prevents overfitting by discouraging very long windows unless they genuinely improve the fit.
+$$\text{selected} = \arg\max_{\text{n points}} \left\{ \text{adj.}R^2 \geq \max(\text{adj.}R^2) - \text{adj.r.squared.factor} \right\}$$
+
+The small tolerance (`adj.r.squared.factor`, default 0.0001) means: prefer longer windows (more points → more accurate λz) unless the longer window's adj.R² is noticeably worse than the best. This is a **model-selection tolerance**, not a per-point penalty added to R².
 
 ```{mermaid}
 flowchart TD
     A["All points after Tmax"] --> B["Try subsets: last 3, last 4, ..., all"]
     B --> C["Fit log-linear regression to each"]
     C --> D{"Passes quality filters?\nλz > 0, R² ≥ threshold\nspan.ratio ≥ minimum"}
-    D -- yes --> E["Compute adj.R² with penalty"]
+    D -- yes --> E["Compute adj.R²"]
     D -- no --> F["Discard subset"]
-    E --> G["Select highest adj.R²"]
+    E --> G["Select longest window within adj.r.squared.factor of best adj.R²"]
     G --> H["Return λz, half.life, R², n.points"]
 ```
 

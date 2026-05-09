@@ -159,7 +159,7 @@ All options and what they control:
 |---|---|---|
 | `min.hl.points` | `3` | Minimum data points for a valid λz regression |
 | `min.hl.r.squared` | `0.9` | Minimum adjusted R² for λz acceptance |
-| `adj.r.squared.factor` | `0.0001` | Penalty per extra point in adjusted R² (`adj.r² = r² - factor × n`) |
+| `adj.r.squared.factor` | `0.0001` | Selection tolerance: the longest regression window whose adj.R² is within this value of the best adj.R² is chosen (favours more points when fits are nearly equal) |
 | `min.span.ratio` | `2` | Minimum ratio of time span to half-life; rejects regressions over too short a window |
 | `allow.tmax.in.half.life` | `FALSE` | Allow Tmax timepoint in λz regression |
 | `hl_method` | `"log-linear"` | `"log-linear"` or `"tobit"` — **not in CRAN 0.12.1, requires GitHub version** |
@@ -176,14 +176,13 @@ All options and what they control:
 | Option | Default | Effect |
 |---|---|---|
 | `conc.na` | `"drop"` | NA concentrations: `"drop"` removes them; a number substitutes that value |
-| `conc.blq` | (list) | BLQ concentrations: `"drop"`, `"keep"`, or a number; can differ before/after Tmax via `list(before.tmax=, after.tmax=)` |
+| `conc.blq` | `list(first="keep", middle="drop", last="keep")` | BLQ concentrations: `"drop"`, `"keep"`, or a number globally; or a named list with keys `first` (before first non-BLQ), `middle` (between non-BLQs), `last` (after last non-BLQ), or `before.tmax`/`after.tmax` |
 
 **Tmax / Tmin**
 
 | Option | Default | Effect |
 |---|---|---|
 | `first.tmax` | `TRUE` | `TRUE` = return first Tmax when tied; `FALSE` = return last |
-| `first.tmin` | `TRUE` | Same for Tmin |
 
 **Summary / output**
 

@@ -25,7 +25,7 @@ Urine NCA characterizes how much drug is excreted in urine over time. Key parame
 
 ## Data structure for urine
 
-Urine NCA requires a **separate concentration object** for urine, with `volumeu` specifying the column that holds the urine volume collected in each interval.
+Urine NCA requires a **separate concentration object** for urine, with the `volume` argument to `PKNCAconc()` specifying the column name that holds the urine volume collected in each interval.
 
 The key distinction from plasma NCA: urine concentrations represent **interval averages** rather than timepoint measurements. Each row covers the collection period from the previous sample to the current time.
 

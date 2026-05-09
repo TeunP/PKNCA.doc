@@ -48,7 +48,7 @@ ggplot(d_tss, aes(x = dose_number, y = ctrough, group = Subject, colour = factor
 
 Fits a monoexponential approach-to-plateau model:
 
-$$C_{\text{trough}}(n) = C_{ss} \cdot \left(1 - e^{k_{\text{tss}} \cdot n}\right)$$
+$$C_{\text{trough}}(n) = C_{ss} \cdot \left(1 - e^{-k_{\text{tss}} \cdot n}\right)$$
 
 Reports TSS as the dose occasion at which the predicted concentration reaches a specified fraction of Css (default: 90% = `tss.fraction = 0.9`).
 

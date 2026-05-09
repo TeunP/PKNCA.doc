@@ -490,19 +490,36 @@ Excluded points appear flagged in `as.data.frame()` output, preserving audit tra
 
 PKNCA's `conc.blq` option controls how BLQ values (typically entered as 0) are treated:
 
-```{r}
-# Default: keep BLQ as 0
-# "drop": treat BLQ as missing (NA)
-# "ignore": use 0 as-is
-# List form for per-interval control:
+The default is `list(first = "keep", middle = "drop", last = "keep")`:
+- `first` — BLQs before the first non-BLQ concentration (keep, often a pre-dose zero)
+- `middle` — BLQs sandwiched between non-BLQ values (dropped by default)
+- `last` — BLQs after the last non-BLQ concentration (keep by default)
 
+You can override globally or with positional keys:
+
+```{r}
+# Global: treat all BLQ as 0
+o_data_blq_keep <- PKNCAdata(
+  o_conc, o_dose,
+  intervals = ev_intervals,
+  options = list(conc.blq = "keep")
+)
+
+# Global: remove all BLQ values
+o_data_blq_drop <- PKNCAdata(
+  o_conc, o_dose,
+  intervals = ev_intervals,
+  options = list(conc.blq = "drop")
+)
+
+# Per-phase (before/after Tmax):
 o_data_blq <- PKNCAdata(
   o_conc, o_dose,
   intervals = ev_intervals,
   options = list(
     conc.blq = list(
       before.tmax = "keep",   # keep 0s before Tmax (ascending phase)
-      after.tmax  = "drop"    # drop BLQs after Tmax (avoids dragging AUC down)
+      after.tmax  = "drop"    # drop BLQs after Tmax
     )
   )
 )

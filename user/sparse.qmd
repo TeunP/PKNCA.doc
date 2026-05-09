@@ -135,7 +135,7 @@ mean_profile
 Available mean methods (controlled internally):
 
 - **`"arithmetic mean"`** — simple mean of all values including BLQs as 0
-- **`"arithmetic mean, <=50% BLQ"`** — if ≥50% of subjects at a timepoint are BLQ, the mean concentration at that timepoint is set to 0
+- **`"arithmetic mean, <=50% BLQ"`** — if **strictly more than 50%** of subjects at a timepoint are BLQ, the mean concentration at that timepoint is set to 0 (at exactly 50% BLQ the mean is not zeroed)
 
 The second method is conservative: timepoints with majority-BLQ results don't pull the mean above zero.
 

@@ -37,15 +37,16 @@ length(get.interval.cols())
 
 ```r
 add.interval.col(
-  name        = "my.param",       # column name used in intervals data frame
+  name        = "my.param",         # column name used in intervals data frame
   FUN         = "pk.calc.my.param", # character string: function name
-  values      = c(FALSE, TRUE),   # allowed values in intervals (FALSE = skip, TRUE = compute)
-  unit_type   = "time",           # units category (see below)
-  pretty_name = "My parameter",   # human-readable label
-  desc        = "What it does",   # one-line description
-  depends     = NULL,             # other parameters that must be computed first
-  formalsmap  = list(),           # how to map registered arg names to your function args
-  datatype    = "interval"        # "interval" (default), "individual", or "population"
+  values      = c(FALSE, TRUE),     # allowed values in intervals (FALSE = skip, TRUE = compute)
+  unit_type   = "time",             # units category (see below)
+  pretty_name = "My parameter",     # human-readable label
+  desc        = "What it does",     # one-line description
+  depends     = NULL,               # other parameters that must be computed first
+  sparse      = FALSE,              # TRUE if this is a sparse-PK parameter
+  formalsmap  = list(),             # how to map registered arg names to your function args
+  datatype    = "interval"          # "interval" (default), "individual", or "population"
 )
 ```
 
