@@ -400,3 +400,10 @@ as.data.frame(o_nca_interp) |>
   filter(PPTESTCD == "auclast") |>
   select(start, end, PPTESTCD, PPORRES)
 ```
+
+
+---
+
+::: {.callout-note icon=false appearance="minimal"}
+**pkgdown reference:** [PKNCAconc()](https://humanpred.github.io/pknca/reference/PKNCAconc.html) · [PKNCAdose()](https://humanpred.github.io/pknca/reference/PKNCAdose.html) · [PKNCAdata()](https://humanpred.github.io/pknca/reference/PKNCAdata.html) · [pk.nca()](https://humanpred.github.io/pknca/reference/pk.nca.html) · [interp.extrap.conc.dose()](https://humanpred.github.io/pknca/reference/interp.extrap.conc.dose.html) · [interp.extrap.conc()](https://humanpred.github.io/pknca/reference/interp.extrap.conc.html)
+:::

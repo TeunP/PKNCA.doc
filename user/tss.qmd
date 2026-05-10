@@ -140,3 +140,10 @@ tss_combined
 | `verbose` | `FALSE` | Print model fitting details |
 
 > **Note:** TSS estimation requires **multiple dose occasions with consistent trough sampling**. It is not applicable to single-dose studies or studies where trough collection was inconsistent.
+
+
+---
+
+::: {.callout-note icon=false appearance="minimal"}
+**pkgdown reference:** [pk.tss()](https://humanpred.github.io/pknca/reference/pk.tss.html) · [pk.tss.monoexponential()](https://humanpred.github.io/pknca/reference/pk.tss.monoexponential.html) · [pk.tss.stepwise.linear()](https://humanpred.github.io/pknca/reference/pk.tss.stepwise.linear.html)
+:::

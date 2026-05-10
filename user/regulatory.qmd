@@ -178,3 +178,10 @@ renv::restore()
 ```
 
 Together, `PKNCA.options()`, `sessionInfo()`, and `renv` provide the three layers of reproducibility documentation expected for regulatory NCA submissions.
+
+
+---
+
+::: {.callout-note icon=false appearance="minimal"}
+**pkgdown reference:** [PKNCAconc()](https://humanpred.github.io/pknca/reference/PKNCAconc.html) · [PKNCAdose()](https://humanpred.github.io/pknca/reference/PKNCAdose.html) · [PKNCAdata()](https://humanpred.github.io/pknca/reference/PKNCAdata.html) · [pk.nca()](https://humanpred.github.io/pknca/reference/pk.nca.html) · [PKNCA.options()](https://humanpred.github.io/pknca/reference/PKNCA.options.html)
+:::

@@ -172,3 +172,10 @@ Sparse PK (one or two samples per subject, common in preclinical or paediatric s
 ---
 
 > This overview covers the surface. The formalsmap system, business rules (`002-pk.business.rules.R`), and the validation framework (`v60-PKNCA-validation.Rmd`) are richer topics worth exploring further.
+
+
+---
+
+::: {.callout-note icon=false appearance="minimal"}
+**pkgdown reference:** [PKNCAconc()](https://humanpred.github.io/pknca/reference/PKNCAconc.html) · [PKNCAdose()](https://humanpred.github.io/pknca/reference/PKNCAdose.html) · [PKNCAdata()](https://humanpred.github.io/pknca/reference/PKNCAdata.html) · [pk.nca()](https://humanpred.github.io/pknca/reference/pk.nca.html) · [add.interval.col()](https://humanpred.github.io/pknca/reference/add.interval.col.html) · [get.interval.cols()](https://humanpred.github.io/pknca/reference/get.interval.cols.html) · [PKNCA.options()](https://humanpred.github.io/pknca/reference/PKNCA.options.html) · [pknca_units_table()](https://humanpred.github.io/pknca/reference/pknca_units_table.html)
+:::

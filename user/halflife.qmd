@@ -342,3 +342,10 @@ ggplot(subj1, aes(x = time, y = conc)) +
        x = "Time (h)", y = "Concentration (mg/L) [log scale]") +
   theme_minimal()
 ```
+
+
+---
+
+::: {.callout-note icon=false appearance="minimal"}
+**pkgdown reference:** [PKNCAconc()](https://humanpred.github.io/pknca/reference/PKNCAconc.html) · [PKNCAdose()](https://humanpred.github.io/pknca/reference/PKNCAdose.html) · [PKNCAdata()](https://humanpred.github.io/pknca/reference/PKNCAdata.html) · [pk.nca()](https://humanpred.github.io/pknca/reference/pk.nca.html) · [pk.calc.half.life()](https://humanpred.github.io/pknca/reference/pk.calc.half.life.html) · [get_halflife_points()](https://humanpred.github.io/pknca/reference/get_halflife_points.html)
+:::

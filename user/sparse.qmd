@@ -281,3 +281,10 @@ as.data.frame(o_nca_sparse_full) |>
 ```
 
 > `vss.sparse.last` and `vz.sparse.last` require a terminal elimination estimate (λz) which cannot be derived from the pooled mean sparse profile alone; they return `NA` unless additional terminal-phase information is available.
+
+
+---
+
+::: {.callout-note icon=false appearance="minimal"}
+**pkgdown reference:** [PKNCAconc()](https://humanpred.github.io/pknca/reference/PKNCAconc.html) · [PKNCAdose()](https://humanpred.github.io/pknca/reference/PKNCAdose.html) · [PKNCAdata()](https://humanpred.github.io/pknca/reference/PKNCAdata.html) · [pk.nca()](https://humanpred.github.io/pknca/reference/pk.nca.html) · [get.interval.cols()](https://humanpred.github.io/pknca/reference/get.interval.cols.html)
+:::

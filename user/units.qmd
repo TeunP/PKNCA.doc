@@ -286,3 +286,10 @@ df_all |>
 | Inspect units in results | `as.data.frame(res)$PPORRESU` |
 | Extract units from a PKNCAdata object (≥ 0.12.2) | `pknca_units_table(o_data)` |
 | Allow some parameters without units (≥ 0.12.2) | `PKNCA.options(allow_partial_missing_units = TRUE)` |
+
+
+---
+
+::: {.callout-note icon=false appearance="minimal"}
+**pkgdown reference:** [PKNCAconc()](https://humanpred.github.io/pknca/reference/PKNCAconc.html) · [PKNCAdose()](https://humanpred.github.io/pknca/reference/PKNCAdose.html) · [PKNCAdata()](https://humanpred.github.io/pknca/reference/PKNCAdata.html) · [pknca_units_table()](https://humanpred.github.io/pknca/reference/pknca_units_table.html) · [PKNCA.options()](https://humanpred.github.io/pknca/reference/PKNCA.options.html)
+:::

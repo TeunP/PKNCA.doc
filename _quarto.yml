@@ -2,14 +2,23 @@ project:
   type: book
   output-dir: _book
 
+website:
+  site-url: https://humanpred.github.io/pknca-book
+
 book:
   title: "PKNCA: Noncompartmental Analysis in R"
   author: "Teun M. Post"
   date: today
   description: "A comprehensive guide to the PKNCA R package (≥ 0.12.2) — covering every function, parameter, and workflow with runnable examples."
-  repo-url: https://github.com/humanpred/pknca
-  repo-actions: [issue]
+  repo-url: https://github.com/humanpred/pknca-book
+  repo-actions: [issue, edit]
   favicon: ""
+  navbar:
+    right:
+      - text: "Function Reference"
+        href: https://humanpred.github.io/pknca/reference/index.html
+      - text: "pkgdown site"
+        href: https://humanpred.github.io/pknca/
   chapters:
     - index.qmd
     - part: "User Guide"

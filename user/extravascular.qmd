@@ -647,3 +647,10 @@ ev_relevant <- c(
 
 sort(names(interval_cols)[names(interval_cols) %in% ev_relevant])
 ```
+
+
+---
+
+::: {.callout-note icon=false appearance="minimal"}
+**pkgdown reference:** [PKNCAconc()](https://humanpred.github.io/pknca/reference/PKNCAconc.html) · [PKNCAdose()](https://humanpred.github.io/pknca/reference/PKNCAdose.html) · [PKNCAdata()](https://humanpred.github.io/pknca/reference/PKNCAdata.html) · [pk.nca()](https://humanpred.github.io/pknca/reference/pk.nca.html) · [pk.calc.f()](https://humanpred.github.io/pknca/reference/pk.calc.f.html) · [pknca_units_table()](https://humanpred.github.io/pknca/reference/pknca_units_table.html)
+:::

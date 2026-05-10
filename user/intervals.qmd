@@ -278,3 +278,10 @@ d_data <- PKNCAdata(d_conc, d_dose, intervals = my_intervals)
 suppressMessages(o_nca <- pk.nca(d_data))
 as.data.frame(o_nca) |> head(8)
 ```
+
+
+---
+
+::: {.callout-note icon=false appearance="minimal"}
+**pkgdown reference:** [PKNCAconc()](https://humanpred.github.io/pknca/reference/PKNCAconc.html) · [PKNCAdose()](https://humanpred.github.io/pknca/reference/PKNCAdose.html) · [PKNCAdata()](https://humanpred.github.io/pknca/reference/PKNCAdata.html) · [pk.nca()](https://humanpred.github.io/pknca/reference/pk.nca.html) · [get.interval.cols()](https://humanpred.github.io/pknca/reference/get.interval.cols.html) · [check.interval.specification()](https://humanpred.github.io/pknca/reference/check.interval.specification.html) · [get.parameter.deps()](https://humanpred.github.io/pknca/reference/get.parameter.deps.html)
+:::
