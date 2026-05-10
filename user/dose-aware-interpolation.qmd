@@ -192,3 +192,10 @@ Understanding its behaviour helps diagnose unusual NCA results when dosing and s
 | `time.out` | Yes | Target time at which to interpolate/extrapolate |
 | `out.after` | No (default `FALSE`) | `FALSE` = before dose; `TRUE` = after dose |
 | `options` | No | PKNCA options list (controls AUC method / interpolation rule) |
+
+
+---
+
+::: {.callout-note icon=false appearance="minimal"}
+**pkgdown reference:** [interp.extrap.conc.dose()](https://humanpred.github.io/pknca/reference/interp.extrap.conc.dose.html) · [interp.extrap.conc()](https://humanpred.github.io/pknca/reference/interp.extrap.conc.html)
+:::

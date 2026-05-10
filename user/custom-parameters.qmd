@@ -274,3 +274,10 @@ summary(pk.nca(PKNCAdata(o_conc, o_dose, intervals = data.frame(
 - **`FUN` must be a character string.** Passing a function object causes an error.
 - **`depends` controls evaluation order.** List all parameters your function reads. PKNCA resolves the dependency graph and ensures they are computed before your function is called.
 - **Functions must be in scope** when `pk.nca()` runs. Define them in the global environment or in a package loaded before calling `pk.nca()`.
+
+
+---
+
+::: {.callout-note icon=false appearance="minimal"}
+**pkgdown reference:** [PKNCAconc()](https://humanpred.github.io/pknca/reference/PKNCAconc.html) · [PKNCAdose()](https://humanpred.github.io/pknca/reference/PKNCAdose.html) · [PKNCAdata()](https://humanpred.github.io/pknca/reference/PKNCAdata.html) · [pk.nca()](https://humanpred.github.io/pknca/reference/pk.nca.html) · [add.interval.col()](https://humanpred.github.io/pknca/reference/add.interval.col.html) · [get.interval.cols()](https://humanpred.github.io/pknca/reference/get.interval.cols.html) · [PKNCA.set.summary()](https://humanpred.github.io/pknca/reference/PKNCA.set.summary.html)
+:::

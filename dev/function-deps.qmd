@@ -128,3 +128,10 @@ data.frame(
   head(30) |>
   knitr::kable(caption = "First 30 parameters ordered by dependency depth (0 = no dependencies)")
 ```
+
+
+---
+
+::: {.callout-note icon=false appearance="minimal"}
+**pkgdown reference:** [get.interval.cols()](https://humanpred.github.io/pknca/reference/get.interval.cols.html) · [add.interval.col()](https://humanpred.github.io/pknca/reference/add.interval.col.html)
+:::

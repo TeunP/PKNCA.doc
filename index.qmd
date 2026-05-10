@@ -2,6 +2,14 @@
 title: "PKNCA: Noncompartmental Analysis in R"
 ---
 
+```{r version-info, include=FALSE}
+pknca_ver <- as.character(packageVersion("PKNCA"))
+```
+
+::: {.callout-note appearance="minimal"}
+This book was built against **PKNCA `r pknca_ver`**. Examples are verified against that version. For the function reference, see the [pkgdown site](https://humanpred.github.io/pknca/reference/index.html).
+:::
+
 **PKNCA** is an R package for automated noncompartmental analysis (NCA). It calculates PK parameters (AUC, Cmax, half-life, clearance, volume, and many more) from concentration-time data, supports IV and extravascular routes, urine excretion, sparse sampling, multiple-dose designs, and CDISC-aligned output. This book documents PKNCA ≥ 0.12.2 with runnable examples throughout.
 
 ## What is NCA?
@@ -58,3 +66,9 @@ flowchart LR
 - **`lambda.z.corrxy`** — correlation between x and y in the λz regression
 - **`pknca_units_table()`** is now an S3 generic with a `PKNCAdata` method
 - **`get_halflife_points()`** works directly on `PKNCAdata` objects; handles `start ≠ 0` correctly
+
+---
+
+::: {.callout-note icon=false appearance="minimal"}
+**Function reference (pkgdown):** [`PKNCAconc()`](https://humanpred.github.io/pknca/reference/PKNCAconc.html) · [`PKNCAdose()`](https://humanpred.github.io/pknca/reference/PKNCAdose.html) · [`PKNCAdata()`](https://humanpred.github.io/pknca/reference/PKNCAdata.html) · [`pk.nca()`](https://humanpred.github.io/pknca/reference/pk.nca.html) · [`normalize_by_col()`](https://humanpred.github.io/pknca/reference/normalize_by_col.html) · [`normalize()`](https://humanpred.github.io/pknca/reference/normalize.html) · [`pknca_units_table()`](https://humanpred.github.io/pknca/reference/pknca_units_table.html) · [`get_halflife_points()`](https://humanpred.github.io/pknca/reference/get_halflife_points.html)
+:::

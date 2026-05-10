@@ -236,3 +236,10 @@ PKNCA.choose.option("min.hl.points", options = list())
 # With a local override, the local value wins
 PKNCA.choose.option("min.hl.points", options = list(min.hl.points = 5))
 ```
+
+
+---
+
+::: {.callout-note icon=false appearance="minimal"}
+**pkgdown reference:** [clean.conc.blq()](https://humanpred.github.io/pknca/reference/clean.conc.blq.html) · [clean.conc.na()](https://humanpred.github.io/pknca/reference/clean.conc.na.html) · [interp.extrap.conc()](https://humanpred.github.io/pknca/reference/interp.extrap.conc.html) · [pk.calc.half.life()](https://humanpred.github.io/pknca/reference/pk.calc.half.life.html) · [check.interval.specification()](https://humanpred.github.io/pknca/reference/check.interval.specification.html) · [get.interval.cols()](https://humanpred.github.io/pknca/reference/get.interval.cols.html) · [setRoute()](https://humanpred.github.io/pknca/reference/setRoute.html) · [setDuration()](https://humanpred.github.io/pknca/reference/setDuration.html) · [get.parameter.deps()](https://humanpred.github.io/pknca/reference/get.parameter.deps.html) · [PKNCA.options()](https://humanpred.github.io/pknca/reference/PKNCA.options.html) · [PKNCA.choose.option()](https://humanpred.github.io/pknca/reference/PKNCA.choose.option.html)
+:::

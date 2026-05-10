@@ -158,3 +158,10 @@ cat("Steady-state Cmax:", round(cmax_ss, 2), "mg/L\n")
 | `additional.times` | No | Extra timepoints to include in the output |
 
 > **Limitation:** Superposition assumes linear PK. It should not be used for drugs with non-linear kinetics (e.g., Michaelis-Menten elimination, time-varying clearance, or saturable protein binding).
+
+
+---
+
+::: {.callout-note icon=false appearance="minimal"}
+**pkgdown reference:** [PKNCAconc()](https://humanpred.github.io/pknca/reference/PKNCAconc.html) · [superposition()](https://humanpred.github.io/pknca/reference/superposition.html)
+:::

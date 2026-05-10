@@ -3,8 +3,10 @@
 This guide explains how to update the book when a new version of PKNCA is released.
 Anyone — maintainers, users, or contributors — can follow this workflow.
 
-**Book repo:** https://github.com/TeunP/PKNCA.doc  
+**Book repo:** https://github.com/humanpred/pknca-book  
+**Rendered book:** https://humanpred.github.io/pknca-book/  
 **Package repo:** https://github.com/humanpred/pknca  
+**pkgdown reference:** https://humanpred.github.io/pknca/reference/index.html  
 **Upstream issue:** https://github.com/humanpred/pknca/issues/541
 
 ---
@@ -29,8 +31,8 @@ packageVersion("PKNCA")
 - Clone the book:
 
 ```bash
-git clone https://github.com/TeunP/PKNCA.doc
-cd PKNCA.doc
+git clone https://github.com/humanpred/pknca-book
+cd pknca-book
 ```
 
 ---
@@ -129,6 +131,7 @@ as.data.frame(o_nca) |>
 - Add new sections or update existing ones in the relevant `.qmd` files.
 - Tag new features with `(≥ X.Y.Z)` so readers know when they were introduced.
 - Keep the shared dataset pattern consistent across pages.
+- If the new version introduces new functions, add them to the `:::callout-note` pkgdown reference footer at the bottom of the relevant chapter(s). The link pattern is `[function()]( https://humanpred.github.io/pknca/reference/function.html)`.
 
 ---
 
@@ -162,7 +165,7 @@ git commit -m "update docs for PKNCA vX.Y.Z"
 git push
 ```
 
-The `_book/` directory is in `.gitignore` — only source `.qmd` files are committed.
+The `_book/` directory is in `.gitignore` — only source `.qmd` files are committed. Pushing to `main` triggers the GitHub Actions workflow (`.github/workflows/book.yml`), which renders the book and deploys it to https://humanpred.github.io/pknca-book/ automatically.
 
 ---
 
@@ -174,7 +177,7 @@ Post a comment on the upstream issue or open a new one:
 
 Template:
 > Updated the documentation book for PKNCA vX.Y.Z — covers [list new features].
-> Book: https://github.com/TeunP/PKNCA.doc
+> Book: https://humanpred.github.io/pknca-book/
 
 ---
 
@@ -191,9 +194,12 @@ Template:
 [ ] Update user/workflow.qmd options table (if options changed)
 [ ] Update user/intervals.qmd parameter count and catalogue
 [ ] Update thematic pages (auc-methods, halflife, sparse, urine, etc.)
+[ ] Verify all packages are listed in .github/workflows/book.yml — audit at once with:
+    grep -rh "^library(" user/ dev/ index.qmd | sort -u
 [ ] quarto render — zero errors in console
 [ ] Spot-check _book/ in browser
-[ ] git commit and push
+[ ] Add new functions to chapter pkgdown reference footers if needed
+[ ] git commit and push (CI auto-deploys to humanpred.github.io/pknca-book/)
 [ ] Comment on humanpred/pknca#541
 ```
 

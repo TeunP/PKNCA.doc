@@ -239,3 +239,10 @@ pass a new `options` list to `PKNCAdata()` and call `pk.nca()` again:
 o_data_linear <- PKNCAdata(o_conc, o_dose, options = list(auc.method = "linear"))
 o_nca_linear  <- pk.nca(o_data_linear)
 ```
+
+
+---
+
+::: {.callout-note icon=false appearance="minimal"}
+**pkgdown reference:** [PKNCAconc()](https://humanpred.github.io/pknca/reference/PKNCAconc.html) · [PKNCAdose()](https://humanpred.github.io/pknca/reference/PKNCAdose.html) · [PKNCAdata()](https://humanpred.github.io/pknca/reference/PKNCAdata.html) · [pk.nca()](https://humanpred.github.io/pknca/reference/pk.nca.html) · [PKNCA.options()](https://humanpred.github.io/pknca/reference/PKNCA.options.html)
+:::
