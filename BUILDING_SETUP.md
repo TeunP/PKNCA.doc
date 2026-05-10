@@ -43,6 +43,15 @@ gh api repos/humanpred/pknca-book/pages \
 
 The book will auto-deploy via the included `.github/workflows/book.yml` on every push to `main`.
 
+The `_quarto.yml` already sets:
+
+```yaml
+website:
+  site-url: https://humanpred.github.io/pknca-book
+```
+
+If using a custom domain, update this value before the first deploy.
+
 ---
 
 ## Step 2 — Link the book from the pkgdown site
@@ -160,6 +169,12 @@ Typical final URLs:
 - `pknca.humanpred.com/` → hub landing page
 - `pknca.humanpred.com/user-guide/` → book
 - `pknca.humanpred.com/reference/` → pkgdown
+
+---
+
+## Known bug to file
+
+During authoring, a bug was found: when `hl_method = "tobit"` is set via `PKNCAdata(options = list(hl_method = "tobit"))`, the `lloq` value from `PKNCAconc` is not wired through to `pk.calc.half.life()`, causing a `"Please report a bug"` stop. The workaround is to call `pk.calc.half.life()` directly with the `lloq` argument. File this as a separate issue on `humanpred/pknca` before or alongside the PR.
 
 ---
 
