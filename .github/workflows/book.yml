@@ -35,6 +35,7 @@ jobs:
           packages: |
             any::knitr
             any::rmarkdown
+            any::testthat
             any::PKNCA
             any::dplyr
             any::ggplot2
