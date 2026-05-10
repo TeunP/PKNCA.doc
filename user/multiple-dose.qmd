@@ -227,7 +227,8 @@ find.tau(dose_times)
 Use the result to construct intervals programmatically:
 
 ```{r}
-tau_detected <- find.tau(d_dose_2dose$time)
+# find.tau() expects one subject's dose times — filter before calling
+tau_detected <- find.tau(d_dose_2dose$time[d_dose_2dose$Subject == 1])
 cat("Detected tau:", tau_detected, "h\n")
 ```
 
