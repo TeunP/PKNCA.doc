@@ -51,3 +51,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full update workflow, including h
 - New dev topics → add a `.qmd` to `dev/` and register it in `_quarto.yml`
 - Always run `quarto render` after changes and check the console for errors
 - Every chapter must end with a `:::callout-note` footer linking new functions to `https://humanpred.github.io/pknca/reference/<function>.html` — add links when introducing functions not yet in the footer
+- When updating the CI workflow's package list, audit all chapters at once rather than fixing one missing package per run:
+  ```bash
+  grep -rh "^library(" user/ dev/ index.qmd | sort -u
+  ```

@@ -194,6 +194,8 @@ Template:
 [ ] Update user/workflow.qmd options table (if options changed)
 [ ] Update user/intervals.qmd parameter count and catalogue
 [ ] Update thematic pages (auc-methods, halflife, sparse, urine, etc.)
+[ ] Verify all packages are listed in .github/workflows/book.yml — audit at once with:
+    grep -rh "^library(" user/ dev/ index.qmd | sort -u
 [ ] quarto render — zero errors in console
 [ ] Spot-check _book/ in browser
 [ ] Add new functions to chapter pkgdown reference footers if needed
