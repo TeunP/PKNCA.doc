@@ -39,6 +39,7 @@ jobs:
             any::dplyr
             any::ggplot2
             any::conflicted
+            any::visNetwork
             github::humanpred/pknca
 
       - name: Set up Quarto
