@@ -1,74 +1,47 @@
-# CLAUDE.md — PKNCA Documentation Project
+# CLAUDE.md — PKNCA Documentation Book
+
+This file provides guidance to Claude Code when working in this repository.
 
 ## What This Is
 
-A standalone Quarto documentation site for the PKNCA R package (CRAN v0.12.1).
-Intended audience: Teun (personal reference), eventually shareable.
+A Quarto book documenting the [PKNCA](https://github.com/humanpred/pknca) R package (≥ 0.12.2).
+Every function, option, and parameter is covered with runnable examples verified against live PKNCA output.
+
+## How to Render
+
+```bash
+quarto render        # full build → output in _book/
+quarto preview       # live preview with auto-reload
+```
+
+```r
+# Install dependencies (once)
+install.packages(c("PKNCA", "dplyr", "ggplot2", "conflicted"))
+```
 
 ## Project Structure
 
 ```
-PKNCA.doc/
-  CLAUDE.md              # this file
-  _quarto.yml            # site config and navigation
-  index.qmd              # overview: what is NCA, what is PKNCA
-  validate.R             # self-check script — run to verify all examples work
-  user/
-    workflow.qmd         # visual + textual workflow overview (Mermaid)
-    intravascular.qmd    # IV worked examples covering all options
-    extravascular.qmd    # EV/oral worked examples covering all options
-  dev/
-    function-deps.qmd    # interactive visNetwork dependency graph of NCA parameters
-    architecture.qmd     # light overview of class system and internals
-  _site/                 # rendered output (gitignored)
+_quarto.yml              # book config: title, author, chapter list
+index.qmd                # introduction + What's new per version
+user/                    # 19 User Guide chapters
+dev/                     # 2 Developer Reference chapters
+_book/                   # rendered output (gitignored)
 ```
-
-## How to Render
-
-```r
-# Install dependencies (once)
-install.packages(c("PKNCA", "quarto", "visNetwork", "igraph", "dplyr", "ggplot2"))
-
-# Render the full site
-quarto::quarto_render(".")
-
-# Live preview with auto-reload
-quarto::quarto_preview(".")
-```
-
-Or from terminal:
-```bash
-cd /Users/teun/Desktop/PKNCA.doc
-quarto render
-quarto preview   # opens browser, live reloads on save
-```
-
-## Self-Check
-
-Run `validate.R` to verify all key examples produce numerically correct output:
-
-```r
-source("validate.R")
-```
-
-All checks print PASS or FAIL with expected vs. actual values.
 
 ## Conventions
 
-- Datasets: `datasets::Indometh` (IV) and `datasets::Theoph` (EV/oral)
-- PKNCA version: CRAN 0.12.1
-- Code chunks: `eval: true` — everything must run
-- No `suppressWarnings()` hiding real issues — fix root causes
-- Each page is self-contained: load packages at the top of every `.qmd`
+- **Datasets:** `datasets::Theoph` (extravascular) and `datasets::Indometh` (intravascular)
+- **PKNCA version:** ≥ 0.12.2
+- **Code chunks:** `eval: true` — every chunk must run without error
+- **No `suppressWarnings()`** hiding real issues — fix root causes
+- **Each page is self-contained:** load packages at the top of every `.qmd`
+- **New features** are tagged with `(≥ X.Y.Z)` to indicate the minimum version
 
-## Adding Content
+## Adding or Updating Content
 
-- New user topics → `user/` as a new `.qmd`, add to `_quarto.yml` sidebar
-- New dev topics → `dev/` as a new `.qmd`, add to `_quarto.yml` sidebar
-- Always run `source("validate.R")` and `quarto render` after changes to confirm nothing broke
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full update workflow, including how to find what changed in a new PKNCA release, write and test examples, identify which pages to update, and verify the build.
 
-## Depth Reminder
-
-Developer docs are currently light (architecture overview + dependency graph).
-Ask Teun when to expand: formalsmap system, writing custom parameter functions,
-business rules, unit system internals.
+- New user topics → add a `.qmd` to `user/` and register it in `_quarto.yml`
+- New dev topics → add a `.qmd` to `dev/` and register it in `_quarto.yml`
+- Always run `quarto render` after changes and check the console for errors
