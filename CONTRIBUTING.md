@@ -167,7 +167,15 @@ git commit -m "update docs for PKNCA vX.Y.Z"
 git push
 ```
 
-The `_book/` directory is in `.gitignore` — only source `.qmd` files are committed. Pushing to `main` triggers the GitHub Actions workflow (`.github/workflows/book.yml`), which renders the book and deploys it to https://humanpred.github.io/pknca-book/ automatically.
+The `_book/` directory is in `.gitignore` — only source `.qmd` files are committed. Pushing to `main` triggers the GitHub Actions workflow (`.github/workflows/book.yml`), which renders the book and deploys it automatically. The live URL depends on where the repo is hosted:
+
+| Repo | Rendered URL |
+|---|---|
+| `TeunP/PKNCA.doc` (current) | https://teunp.github.io/PKNCA.doc/ |
+| `humanpred/pknca-book` (intended) | https://humanpred.github.io/pknca-book/ |
+| Custom domain (optional) | e.g. `pknca.humanpred.com/user-guide/` |
+
+If the URL changes, update `site-url` in `_quarto.yml` accordingly.
 
 ---
 
@@ -179,7 +187,7 @@ Post a comment on the upstream issue or open a new one:
 
 Template:
 > Updated the documentation book for PKNCA vX.Y.Z — covers [list new features].
-> Book: https://humanpred.github.io/pknca-book/
+> Book: [insert live URL — see step 6 for the URL that applies to your repo]
 
 ---
 
