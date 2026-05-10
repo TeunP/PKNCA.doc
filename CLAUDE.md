@@ -55,6 +55,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full update workflow, including h
 - Always run `quarto render` after changes and check the console for errors
 - Every chapter must end with a `:::callout-note` footer linking new functions to `https://humanpred.github.io/pknca/reference/<function>.html` — add links when introducing functions not yet in the footer
 - The live URL depends on where the repo is hosted — `teunp.github.io/PKNCA.doc/` (current), `humanpred.github.io/pknca-book/` (intended), or a custom domain. If the URL changes, update `site-url` in `_quarto.yml`
+- When reviewing code correctness, read every code chunk in full and check for: wrong input shapes (e.g. multi-subject vectors passed to single-subject functions), out-of-scope variables (referenced before creation or from a different chunk), bad column references, and invalid function arguments. Then render the book locally (`quarto render`) and inspect the console output for warnings and errors — static review alone is not sufficient
 - When updating the CI workflow's package list, audit all chapters at once rather than fixing one missing package per run:
   ```bash
   grep -rh "^library(" user/ dev/ index.qmd | sort -u
