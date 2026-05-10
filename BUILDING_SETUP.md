@@ -1,6 +1,6 @@
 # PKNCA docs — full mrgsolve-style setup for Claude Code
 
-This file is a Claude Code instruction set. Open it in a Claude Code session inside the `humanpred/pknca` repo and say: **"Follow BILLDENNEY_SETUP.md"**. Claude will execute each step.
+This file is a Claude Code instruction set. Open it in a Claude Code session inside the `humanpred/pknca` repo and say: **"Follow BUILDING_SETUP.md"**. Claude will execute each step.
 
 ---
 
