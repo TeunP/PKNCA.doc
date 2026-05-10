@@ -1,6 +1,11 @@
 # PKNCA Documentation Book
 
+[![Render and deploy book](https://github.com/TeunP/PKNCA.doc/actions/workflows/book.yml/badge.svg)](https://github.com/TeunP/PKNCA.doc/actions/workflows/book.yml)
+
 A comprehensive **Quarto book** documenting the [PKNCA](https://github.com/humanpred/pknca) R package (≥ 0.12.2) with runnable examples throughout. Every function, option, and parameter is verified against live PKNCA output.
+
+**Live book:** https://teunp.github.io/PKNCA.doc/  
+**Intended home (pending org setup):** https://humanpred.github.io/pknca-book/
 
 ## Build locally
 
@@ -63,5 +68,7 @@ open _book/index.html
 ## Related
 
 - PKNCA source: https://github.com/humanpred/pknca
+- pkgdown reference: https://humanpred.github.io/pknca/reference/index.html
 - CRAN: https://cran.r-project.org/package=PKNCA
 - Discussion: [humanpred/pknca#541](https://github.com/humanpred/pknca/issues/541)
+- Setup guide for org repo + hub site: [BUILDING_SETUP.md](BUILDING_SETUP.md)
