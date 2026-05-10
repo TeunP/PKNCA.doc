@@ -120,13 +120,22 @@ When you call `pk.nca()`, PKNCA calls `sort.interval.cols()` internally to produ
 # then those whose dependencies are already satisfied.
 cols <- get.interval.cols()
 dep_counts <- sapply(cols, function(x) length(x$depends))
-data.frame(
+all_deps <- data.frame(
   parameter  = names(dep_counts),
   n_depends  = unname(dep_counts)
 ) |>
-  arrange(n_depends, parameter) |>
-  head(30) |>
-  knitr::kable(caption = "First 30 parameters ordered by dependency depth (0 = no dependencies)")
+  arrange(n_depends, parameter)
+
+cat(sprintf("%d parameters have no dependencies (base parameters).\n", sum(all_deps$n_depends == 0)))
+cat(sprintf("%d parameters have at least one dependency (derived parameters).\n\n", sum(all_deps$n_depends > 0)))
+
+# Show only derived parameters — these illustrate the resolution order
+all_deps |>
+  filter(n_depends > 0) |>
+  knitr::kable(
+    col.names = c("Parameter", "N dependencies"),
+    caption   = "Derived parameters ordered by number of dependencies (execution order)"
+  )
 ```
 
 
