@@ -3,8 +3,10 @@
 This guide explains how to update the book when a new version of PKNCA is released.
 Anyone — maintainers, users, or contributors — can follow this workflow.
 
-**Book repo:** https://github.com/humanpred/pknca-book  
-**Rendered book:** https://humanpred.github.io/pknca-book/  
+**Book repo (current):** https://github.com/TeunP/PKNCA.doc  
+**Rendered book (current):** https://teunp.github.io/PKNCA.doc/  
+**Book repo (intended):** https://github.com/humanpred/pknca-book  
+**Rendered book (intended):** https://humanpred.github.io/pknca-book/  
 **Package repo:** https://github.com/humanpred/pknca  
 **pkgdown reference:** https://humanpred.github.io/pknca/reference/index.html  
 **Upstream issue:** https://github.com/humanpred/pknca/issues/541
@@ -31,8 +33,8 @@ packageVersion("PKNCA")
 - Clone the book:
 
 ```bash
-git clone https://github.com/humanpred/pknca-book
-cd pknca-book
+git clone https://github.com/TeunP/PKNCA.doc
+cd PKNCA.doc
 ```
 
 ---

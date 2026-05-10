@@ -7,9 +7,11 @@ This file provides guidance to Claude Code when working in this repository.
 A Quarto book documenting the [PKNCA](https://github.com/humanpred/pknca) R package (≥ 0.12.2).
 Every function, option, and parameter is covered with runnable examples verified against live PKNCA output.
 
-**Book repo:** https://github.com/humanpred/pknca-book  
-**pkgdown site:** https://humanpred.github.io/pknca/  
-**Rendered book:** https://humanpred.github.io/pknca-book/
+**Book repo (current):** https://github.com/TeunP/PKNCA.doc  
+**Rendered book (current):** https://teunp.github.io/PKNCA.doc/  
+**Book repo (intended):** https://github.com/humanpred/pknca-book  
+**Rendered book (intended):** https://humanpred.github.io/pknca-book/  
+**pkgdown site:** https://humanpred.github.io/pknca/
 
 ## How to Render
 
@@ -20,7 +22,8 @@ quarto preview       # live preview with auto-reload
 
 ```r
 # Install dependencies (once)
-install.packages(c("PKNCA", "dplyr", "ggplot2", "conflicted"))
+remotes::install_github("humanpred/pknca")  # >= 0.12.2 required
+install.packages(c("knitr", "rmarkdown", "dplyr", "ggplot2", "conflicted", "testthat", "visNetwork"))
 ```
 
 ## Project Structure
